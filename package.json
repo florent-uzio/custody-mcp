@@ -37,7 +37,7 @@
     "format:check": "prettier --check ."
   },
   "devDependencies": {
-    "@florent-uzio/custody": "^2.14.0",
+    "@florent-uzio/custody": "^2.15.0",
     "@mastra/core": "^1.81.0",
     "@mastra/mcp": "^2.7.0",
     "@types/node": "^22.20.5",
