@@ -156,3 +156,48 @@ describe('proposeXrplIntent', () => {
     expect(proposeIntent).not.toHaveBeenCalled()
   })
 })
+
+describe('dryRunXrplIntent', () => {
+  it("runs a Dry run through custody.js without proposing, even on a read-only default Environment, and returns Custody's verdict and fee", async () => {
+    const dryRunIntent = vi.fn(async (_params: object, _options: object) => ({
+      type: 'v0_CreateTransactionOrder',
+      success: false,
+      errors: ['Destination rDestination does not exist'],
+      result: { type: 'Failure', reason: 'tecNO_DST', hint: {} },
+      estimate: { type: 'XRPL', fee: '12' },
+      intentId: 'intent-1',
+      payloadId: 'payload-1',
+    }))
+    const proposeIntent = vi.fn()
+
+    const output = await callTool(options({ xrpl: { dryRunIntent, proposeIntent } }, 'read'), 'dryRunXrplIntent', {
+      account: ADDRESS,
+      operation: payment,
+    })
+
+    expect(dryRunIntent).toHaveBeenCalledWith(
+      { Account: ADDRESS, operation: payment },
+      { domainId: 'domain-1', ledgerId: undefined, description: undefined },
+    )
+    expect(output).toEqual({
+      environment: 'dev',
+      domainId: 'domain-1',
+      success: false,
+      errors: ['Destination rDestination does not exist'],
+      estimate: { type: 'XRPL', fee: '12' },
+    })
+    expect(proposeIntent).not.toHaveBeenCalled()
+  })
+
+  it('rejects an invalid operation with a field-level message, without calling Custody', async () => {
+    const dryRunIntent = vi.fn()
+
+    const output = await callTool(options({ xrpl: { dryRunIntent } }, 'read'), 'dryRunXrplIntent', {
+      account: ADDRESS,
+      operation: { type: 'Payment', amount: '1000000' },
+    })
+
+    expect(output).toEqual({ error: expect.stringMatching(/operation.*destination/s) })
+    expect(dryRunIntent).not.toHaveBeenCalled()
+  })
+})

@@ -18,6 +18,7 @@ describe('custody MCP server', () => {
 
     expect(tools.map(tool => tool.name).sort()).toEqual([
       'dryRunIntent',
+      'dryRunXrplIntent',
       'findAccountByAddress',
       'getAccount',
       'getAccountBalances',
