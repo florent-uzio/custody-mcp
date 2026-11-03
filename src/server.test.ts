@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import packageJson from '../package.json'
+import { runCli } from './cli'
 import { createCustodyMcpServer } from './server'
 import { callTool, configFile, DEV, ENV_VARS, fakeCustody, NO_CONFIG } from './testing'
 
@@ -186,6 +187,32 @@ describe('custody MCP server', () => {
 
       expect(connect).toHaveBeenCalledTimes(2)
       expect(connect).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'dev', privateKey: 'NEW KEY' }))
+    })
+
+    it('can use an Environment add-env saved while it was running', async () => {
+      const CUSTODY_MCP_CONFIG = configFile({ environments: { dev: { ...DEV, keyReference: keyFile('DEV KEY') } } })
+      const connect = vi.fn(() => fakeCustody({ users: { me: async () => ME } }))
+      const server = createCustodyMcpServer({ env: { CUSTODY_MCP_CONFIG }, connect })
+      await server.executeTool('listEnvironments', {})
+      const answers = ['https://auth.demo.test/token', 'https://api.demo.test', '', '', '']
+
+      await runCli(['add-env', 'demo', '--store', 'file'], {
+        env: { CUSTODY_MCP_CONFIG },
+        ask: async () => answers.shift() ?? '',
+        print: () => {},
+        keychain: { set: async () => {} },
+        connect,
+      })
+      const result = await server.executeTool('getMe', { environment: 'demo' })
+
+      expect(result).toMatchObject({ output: { environment: 'demo', me: ME } })
+      expect(connect).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          name: 'demo',
+          apiUrl: 'https://api.demo.test',
+          privateKey: expect.stringContaining('PRIVATE KEY'),
+        }),
+      )
     })
 
     it('fails only the Environment whose Key reference is broken, saying which one', async () => {
