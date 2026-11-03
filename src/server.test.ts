@@ -17,6 +17,7 @@ describe('custody MCP server', () => {
     const { tools } = await createCustodyMcpServer({ env: { CUSTODY_MCP_CONFIG: NO_CONFIG } }).getToolListInfo()
 
     expect(tools.map(tool => tool.name).sort()).toEqual([
+      'approveIntent',
       'dryRunIntent',
       'dryRunXrplIntent',
       'findAccountByAddress',
@@ -40,6 +41,7 @@ describe('custody MCP server', () => {
       'listTransfers',
       'proposeIntent',
       'proposeXrplIntent',
+      'rejectIntent',
       'waitForIntent',
     ])
   })
@@ -48,6 +50,13 @@ describe('custody MCP server', () => {
     const { instructions } = createCustodyMcpServer({ env: { CUSTODY_MCP_CONFIG: NO_CONFIG } })
 
     expect(instructions).toContain('Say which Environment you used')
+  })
+
+  it('tells the assistant to get an explicit yes before an Approve or Reject the client cannot confirm', () => {
+    const { instructions } = createCustodyMcpServer({ env: { CUSTODY_MCP_CONFIG: NO_CONFIG } })
+
+    expect(instructions).toContain('approveIntent or rejectIntent')
+    expect(instructions).toContain('explicit "yes"')
   })
 
   describe('Environments from the config file', () => {

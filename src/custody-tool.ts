@@ -1,4 +1,4 @@
-import { createTool } from '@mastra/core/tools'
+import { createTool, type ToolExecutionContext } from '@mastra/core/tools'
 import { z } from 'zod'
 import type { ConnectCustody, CustodyClient } from './custody'
 import { ACCESS_LEVELS, loadEnvironments, type AccessLevel, type Environment } from './environments'
@@ -74,10 +74,14 @@ type CustodyToolSpec<Shape extends z.ZodRawShape, Result extends object> = {
   /** The Access level the Environment needs for this tool (default `read`). */
   access?: AccessLevel
   input: Shape
+  /** The form the human fills in when `run` suspends to ask them something (see `context.suspend`). */
+  resumeSchema?: z.ZodObject
   run: (args: {
     input: z.infer<z.ZodObject<Shape>>
     custody: CustodyClient
     environment: Environment
+    /** Mastra's execution context: the MCP request, and suspend/resume to ask the human. */
+    context: ToolExecutionContext
   }) => Promise<Result>
 }
 
@@ -132,7 +136,8 @@ export const createCustodyToolFactory = (env: Record<string, string | undefined>
         ...(access === 'read' ? environmentInput : writeEnvironmentInput),
         ...spec.input,
       }),
-      execute: async inputData => {
+      resumeSchema: spec.resumeSchema,
+      execute: async (inputData, context) => {
         // Generic shapes defeat zod's inference here; the schema above has already validated the input.
         const { environment: name, ...input } = inputData as { environment?: string } & Record<string, unknown>
         const environment = await findEnvironment(name)
@@ -144,7 +149,7 @@ export const createCustodyToolFactory = (env: Record<string, string | undefined>
         }
         const custody = await clientFor(environment)
         try {
-          const result = await spec.run({ input: input as z.infer<z.ZodObject<Shape>>, custody, environment })
+          const result = await spec.run({ input: input as z.infer<z.ZodObject<Shape>>, custody, environment, context })
           return { environment: environment.name, ...result }
         } catch (error) {
           throw error instanceof Error ? error : new Error(JSON.stringify(error) ?? String(error))
