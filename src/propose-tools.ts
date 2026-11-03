@@ -101,7 +101,7 @@ const POLL_INTERVAL_MS = 3000
 /** Says in plain terms where a wait left the Intent, so a slow approval never reads as a failure. */
 const waitMessage = (intentId: string, seconds: number, result: WaitForExecutionResult) => {
   if (result.isSuccess) {
-    return `Intent ${intentId} is Executed. Executed means Custody accepted the order, not that it settled on the ledger: follow it with listTransactionOrders and getTransaction.`
+    return `Intent ${intentId} is Executed. Executed means Custody accepted the order, not that it settled on the ledger: follow it with listTransactionOrders, listTransactions and getTransaction.`
   }
   if (!result.isTerminal) {
     const where = result.status === 'Open' ? 'still awaiting approval' : `still ${result.status}`
