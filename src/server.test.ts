@@ -38,6 +38,7 @@ describe('custody MCP server', () => {
       'listTransactionOrders',
       'listTransfers',
       'proposeIntent',
+      'proposeXrplIntent',
       'waitForIntent',
     ])
   })
