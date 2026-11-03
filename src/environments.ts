@@ -12,7 +12,7 @@ export type Environment = {
   authUrl: string
   apiUrl: string
   publicKey: string
-  /** Where the private key lives (`file:<path>`, `env:<VAR>`), never the key itself (ADR-0002). */
+  /** Where the private key lives (`keychain:<service>/<account>`, `file:<path>`, `env:<VAR>`), never the key itself (ADR-0002). */
   keyReference: string
   access: AccessLevel
   defaultDomainId?: string
@@ -66,9 +66,10 @@ export const loadEnvironments = async (env: Env): Promise<Environments> => {
   return { environments, defaultName: config.default ?? environments[0]?.name }
 }
 
-const configPath = (env: Env) => env.CUSTODY_MCP_CONFIG ?? path.join(homedir(), '.config', 'custody-mcp', 'config.json')
+export const configPath = (env: Env) =>
+  env.CUSTODY_MCP_CONFIG ?? path.join(homedir(), '.config', 'custody-mcp', 'config.json')
 
-const readConfig = async (file: string) => {
+export const readConfig = async (file: string) => {
   let text: string
   try {
     text = await readFile(file, 'utf8')
