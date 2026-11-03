@@ -21,12 +21,21 @@ describe('custody MCP server', () => {
       'getAccount',
       'getAccountBalances',
       'getBackendVersion',
+      'getIntent',
       'getMcpVersion',
       'getMe',
+      'getTransaction',
+      'getTransfer',
       'listAccountAddresses',
       'listAccounts',
       'listDomains',
       'listEnvironments',
+      'listIntents',
+      'listLedgers',
+      'listPendingApprovals',
+      'listTickers',
+      'listTransactionOrders',
+      'listTransfers',
     ])
   })
 

@@ -5,8 +5,11 @@ import packageJson from '../package.json'
 import { connectCustody, type ConnectCustody } from './custody'
 import { createAccountTools } from './account-tools'
 import { createCustodyToolFactory } from './custody-tool'
+import { createIntentTools } from './intent-tools'
 import { loadEnvironments } from './environments'
 import { CUSTODY_INSTRUCTIONS } from './instructions'
+import { createReferenceTools } from './reference-tools'
+import { createTransactionTools } from './transaction-tools'
 
 export type ServerOptions = {
   env: Record<string, string | undefined>
@@ -69,6 +72,15 @@ export const createCustodyMcpServer = (options: ServerOptions) => {
     version: packageJson.version,
     description: 'Read from and act on Ripple Custody instances as your own Custody user',
     instructions: CUSTODY_INSTRUCTIONS,
-    tools: { getMcpVersion, getBackendVersion, listEnvironments, getMe, ...createAccountTools(defineCustodyTool) },
+    tools: {
+      getMcpVersion,
+      getBackendVersion,
+      listEnvironments,
+      getMe,
+      ...createAccountTools(defineCustodyTool),
+      ...createIntentTools(defineCustodyTool),
+      ...createTransactionTools(defineCustodyTool),
+      ...createReferenceTools(defineCustodyTool),
+    },
   })
 }

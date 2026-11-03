@@ -1,19 +1,7 @@
 import { z } from 'zod'
-import { domainIdFor, domainInput, type DefineCustodyTool } from './custody-tool'
+import { domainIdFor, domainInput, nextCursor, pageInput, pageQuery, type DefineCustodyTool } from './custody-tool'
 
 const accountInput = { accountId: z.string().describe('Id of the Custody account (see listAccounts).') }
-
-const pageInput = {
-  limit: z.number().int().min(1).max(100).default(20).describe('How many items to return (default 20, at most 100).'),
-  cursor: z.string().optional().describe('The nextCursor of the previous page, to get the page after it.'),
-}
-
-type Page = { nextStartingAfter?: string }
-
-const pageQuery = ({ limit, cursor }: { limit: number; cursor?: string }) => ({ limit, startingAfter: cursor })
-
-// Omitted on the last page, so the model has no cursor to follow.
-const nextCursor = (page: Page) => (page.nextStartingAfter === undefined ? {} : { nextCursor: page.nextStartingAfter })
 
 /** Read tools for the domains and accounts of an Environment's Custody user. */
 export const createAccountTools = (defineCustodyTool: DefineCustodyTool) => ({

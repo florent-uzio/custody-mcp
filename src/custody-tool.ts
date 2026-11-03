@@ -47,6 +47,20 @@ export const domainIdFor = async ({
   )
 }
 
+/** Input of the list tools (spread into their `input`). */
+export const pageInput = {
+  limit: z.number().int().min(1).max(100).default(20).describe('How many items to return (default 20, at most 100).'),
+  cursor: z.string().optional().describe('The nextCursor of the previous page, to get the page after it.'),
+}
+
+type Page = { nextStartingAfter?: string }
+
+export const pageQuery = ({ limit, cursor }: { limit: number; cursor?: string }) => ({ limit, startingAfter: cursor })
+
+// Omitted on the last page, so the model has no cursor to follow.
+export const nextCursor = (page: Page) =>
+  page.nextStartingAfter === undefined ? {} : { nextCursor: page.nextStartingAfter }
+
 type CustodyToolSpec<Shape extends z.ZodRawShape, Result extends object> = {
   id: string
   description: string
