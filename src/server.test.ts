@@ -1,13 +1,35 @@
+import { mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import packageJson from '../package.json'
 import type { CustodyClient } from './custody'
 import { createCustodyMcpServer, type ServerOptions } from './server'
 
+/** A real config file in a fresh temp dir; returns its path, or a path with no file when given nothing. */
+const configFile = (config?: object) => {
+  const file = path.join(mkdtempSync(path.join(tmpdir(), 'custody-mcp-')), 'config.json')
+  if (config !== undefined) {
+    writeFileSync(file, JSON.stringify(config))
+  }
+  return file
+}
+
+// Keeps tests away from the developer's own config file.
+const NO_CONFIG = configFile()
+
 const ENV_VARS = {
+  CUSTODY_MCP_CONFIG: NO_CONFIG,
   AUTH_URL: 'https://auth.example.test/token',
   API_URL: 'https://api.example.test',
   PUBLIC_KEY: 'MCowBQYDK2VwAyEAPUBLICKEYPUBLICKEYPUBLICKEYPUBLICKEYPU=',
   PRIVATE_KEY: '-----BEGIN PRIVATE KEY-----\nSECRETSECRETSECRET\n-----END PRIVATE KEY-----',
+}
+
+const DEV = {
+  authUrl: 'https://auth.dev.test/token',
+  apiUrl: 'https://api.dev.test',
+  publicKey: 'MCowBQYDK2VwAyEADEVDEVDEVDEVDEVDEVDEVDEVDEVDEVDEVDEVDEVDEV=',
 }
 
 /** Stands in for custody.js: only the namespaces a test needs, with canned answers. */
@@ -24,21 +46,171 @@ const callTool = async (options: ServerOptions, toolId: string, args: object = {
 
 describe('custody MCP server', () => {
   it('returns the package name and version from getMcpVersion', async () => {
-    const output = await callTool({ env: {} }, 'getMcpVersion')
+    const output = await callTool({ env: { CUSTODY_MCP_CONFIG: NO_CONFIG } }, 'getMcpVersion')
 
     expect(output).toEqual({ name: '@florent-uzio/custody-mcp', version: packageJson.version })
   })
 
   it('exposes each tool under its camelCase id', async () => {
-    const { tools } = await createCustodyMcpServer({ env: {} }).getToolListInfo()
+    const { tools } = await createCustodyMcpServer({ env: { CUSTODY_MCP_CONFIG: NO_CONFIG } }).getToolListInfo()
 
     expect(tools.map(tool => tool.name).sort()).toEqual(['getMcpVersion', 'getMe', 'listEnvironments'])
   })
 
   it('gives the client instructions on Environments', () => {
-    const { instructions } = createCustodyMcpServer({ env: {} })
+    const { instructions } = createCustodyMcpServer({ env: { CUSTODY_MCP_CONFIG: NO_CONFIG } })
 
     expect(instructions).toContain('Say which Environment you used')
+  })
+
+  describe('Environments from the config file', () => {
+    it('lists each Environment in the config file', async () => {
+      const CUSTODY_MCP_CONFIG = configFile({
+        default: 'dev',
+        environments: { dev: { ...DEV, keyReference: 'env:DEV_KEY', access: 'propose', defaultDomainId: 'domain-1' } },
+      })
+
+      const output = await callTool({ env: { CUSTODY_MCP_CONFIG } }, 'listEnvironments')
+
+      expect(output).toEqual({
+        environments: [
+          {
+            name: 'dev',
+            authUrl: 'https://auth.dev.test/token',
+            apiUrl: 'https://api.dev.test',
+            access: 'propose',
+            defaultDomainId: 'domain-1',
+            isDefault: true,
+          },
+        ],
+      })
+    })
+
+    it('tells the user how to set up an Environment when none is configured', async () => {
+      const output = await callTool({ env: { CUSTODY_MCP_CONFIG: NO_CONFIG } }, 'listEnvironments')
+
+      expect(output).toEqual({
+        error: 'No Environment configured. Run `npx @florent-uzio/custody-mcp add-env <name>` to set one up.',
+      })
+    })
+
+    it('refuses an unknown Access level in the config file instead of guessing one', async () => {
+      const CUSTODY_MCP_CONFIG = configFile({
+        environments: { dev: { ...DEV, keyReference: 'env:X', access: 'admin' } },
+      })
+
+      const output = await callTool({ env: { CUSTODY_MCP_CONFIG } }, 'listEnvironments')
+
+      expect(output).toEqual({ error: expect.stringContaining(`Invalid config file ${CUSTODY_MCP_CONFIG}`) })
+      expect(output).toEqual({ error: expect.stringContaining('environments.dev.access') })
+    })
+
+    it('names the config file when it is not valid JSON', async () => {
+      const CUSTODY_MCP_CONFIG = configFile()
+      writeFileSync(CUSTODY_MCP_CONFIG, '{ not json')
+
+      const output = await callTool({ env: { CUSTODY_MCP_CONFIG } }, 'listEnvironments')
+
+      expect(output).toEqual({ error: expect.stringContaining(`Invalid config file ${CUSTODY_MCP_CONFIG}`) })
+    })
+
+    it('says when the default in the config file names no Environment', async () => {
+      const CUSTODY_MCP_CONFIG = configFile({
+        default: 'prod',
+        environments: { dev: { ...DEV, keyReference: 'env:X' } },
+      })
+
+      const output = await callTool({ env: { CUSTODY_MCP_CONFIG } }, 'listEnvironments')
+
+      expect(output).toEqual({
+        error: `Invalid config file ${CUSTODY_MCP_CONFIG}: the default Environment "prod" is not defined. Known Environments: dev.`,
+      })
+    })
+
+    it('lists the env-var Environment alongside them and marks the default from the config', async () => {
+      const CUSTODY_MCP_CONFIG = configFile({
+        default: 'staging',
+        environments: {
+          dev: { ...DEV, keyReference: 'env:DEV_KEY' },
+          staging: { ...DEV, keyReference: 'env:STAGING_KEY', access: 'approve' },
+        },
+      })
+
+      const output = await callTool({ env: { ...ENV_VARS, CUSTODY_MCP_CONFIG } }, 'listEnvironments')
+
+      expect(output).toMatchObject({
+        environments: [
+          { name: 'dev', access: 'read', isDefault: false },
+          { name: 'staging', access: 'approve', isDefault: true },
+          { name: 'env', access: 'read', isDefault: false },
+        ],
+      })
+    })
+  })
+
+  describe('a read tool', () => {
+    const ME = { publicKey: DEV.publicKey, domains: [] }
+
+    /** A key file in a fresh temp dir, referenced the way the config file does. */
+    const keyFile = (key: string) => {
+      const file = path.join(mkdtempSync(path.join(tmpdir(), 'custody-mcp-key-')), 'key.pem')
+      writeFileSync(file, key)
+      return `file:${file}`
+    }
+
+    it('uses the default Environment from the config file, with the key its file: reference points at', async () => {
+      const CUSTODY_MCP_CONFIG = configFile({
+        default: 'staging',
+        environments: {
+          dev: { ...DEV, keyReference: keyFile('DEV KEY') },
+          staging: { ...DEV, apiUrl: 'https://api.staging.test', keyReference: keyFile('STAGING KEY') },
+        },
+      })
+      const connect = vi.fn(() => fakeCustody({ users: { me: async () => ME } }))
+
+      const output = await callTool({ env: { CUSTODY_MCP_CONFIG }, connect }, 'getMe')
+
+      expect(output).toEqual({ environment: 'staging', me: ME })
+      expect(connect).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'staging', apiUrl: 'https://api.staging.test', privateKey: 'STAGING KEY' }),
+      )
+    })
+
+    it('follows edits to the config file without a restart', async () => {
+      const CUSTODY_MCP_CONFIG = configFile({ environments: { dev: { ...DEV, keyReference: keyFile('OLD KEY') } } })
+      const connect = vi.fn(() => fakeCustody({ users: { me: async () => ME } }))
+      const server = createCustodyMcpServer({ env: { CUSTODY_MCP_CONFIG }, connect })
+      await server.executeTool('getMe', {})
+
+      writeFileSync(
+        CUSTODY_MCP_CONFIG,
+        JSON.stringify({ environments: { dev: { ...DEV, keyReference: keyFile('NEW KEY') } } }),
+      )
+      await server.executeTool('getMe', {})
+
+      expect(connect).toHaveBeenCalledTimes(2)
+      expect(connect).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'dev', privateKey: 'NEW KEY' }))
+    })
+
+    it('fails only the Environment whose Key reference is broken, saying which one', async () => {
+      const CUSTODY_MCP_CONFIG = configFile({
+        default: 'dev',
+        environments: {
+          dev: { ...DEV, keyReference: keyFile('DEV KEY') },
+          broken: { ...DEV, keyReference: 'env:MISSING_KEY' },
+        },
+      })
+      const options = { env: { CUSTODY_MCP_CONFIG }, connect: () => fakeCustody({ users: { me: async () => ME } }) }
+
+      const broken = await callTool(options, 'getMe', { environment: 'broken' })
+      const dev = await callTool(options, 'getMe')
+
+      expect(broken).toEqual({
+        error:
+          'Cannot read the private key of Environment "broken" from env:MISSING_KEY: env var MISSING_KEY is not set',
+      })
+      expect(dev).toEqual({ environment: 'dev', me: ME })
+    })
   })
 
   describe('the env-var Environment', () => {
@@ -118,7 +290,7 @@ describe('custody MCP server', () => {
     })
 
     it('tells the user how to set up an Environment when none is configured', async () => {
-      const output = await callTool({ env: {}, connect: () => fakeCustody({}) }, 'getMe')
+      const output = await callTool({ env: { CUSTODY_MCP_CONFIG: NO_CONFIG }, connect: () => fakeCustody({}) }, 'getMe')
 
       expect(output).toEqual({
         error: 'No Environment configured. Run `npx @florent-uzio/custody-mcp add-env <name>` to set one up.',

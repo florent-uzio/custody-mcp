@@ -1,7 +1,8 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
 import type { ConnectCustody, CustodyClient } from './custody'
-import { environmentsFromEnv, type Environment } from './environments'
+import { loadEnvironments, type Environment } from './environments'
+import { resolveKeyReference } from './key-references'
 
 const environmentInput = {
   environment: z
@@ -27,27 +28,37 @@ type CustodyToolSpec<Shape extends z.ZodRawShape, Result extends object> = {
  * and turn any thrown value into a readable error.
  */
 export const createCustodyToolFactory = (env: Record<string, string | undefined>, connect: ConnectCustody) => {
-  // One client per Environment keeps its auth token across calls.
-  const clients = new Map<string, CustodyClient>()
+  // One client per Environment keeps its auth token across calls. The key is only read when a client
+  // is made, and the client is remade when the Environment's settings change in the config file.
+  const clients = new Map<string, { settings: string; custody: CustodyClient }>()
 
-  const resolve = (name: string | undefined) => {
-    const environments = environmentsFromEnv(env)
-    if (environments.length === 0) {
-      throw new Error('No Environment configured. Run `npx @florent-uzio/custody-mcp add-env <name>` to set one up.')
-    }
+  const resolve = async (name: string | undefined) => {
+    const { environments, defaultName } = await loadEnvironments(env)
 
-    const environment = name === undefined ? environments[0] : environments.find(item => item.name === name)
+    const wanted = name ?? defaultName
+    const environment = environments.find(item => item.name === wanted)
     if (!environment) {
       const known = environments.map(item => item.name).join(', ')
-      throw new Error(`Unknown Environment "${name}". Known Environments: ${known}.`)
+      throw new Error(`Unknown Environment "${wanted}". Known Environments: ${known}.`)
     }
 
-    let custody = clients.get(environment.name)
-    if (!custody) {
-      custody = connect(environment)
-      clients.set(environment.name, custody)
+    const settings = JSON.stringify([
+      environment.authUrl,
+      environment.apiUrl,
+      environment.publicKey,
+      environment.keyReference,
+    ])
+    let cached = clients.get(environment.name)
+    if (cached?.settings !== settings) {
+      const privateKey = await resolveKeyReference(environment.keyReference, env).catch((error: Error) => {
+        throw new Error(
+          `Cannot read the private key of Environment "${environment.name}" from ${environment.keyReference}: ${error.message}`,
+        )
+      })
+      cached = { settings, custody: connect({ ...environment, privateKey }) }
+      clients.set(environment.name, cached)
     }
-    return { environment, custody }
+    return { environment, custody: cached.custody }
   }
 
   return <Shape extends z.ZodRawShape, Result extends object>(spec: CustodyToolSpec<Shape, Result>) =>
@@ -58,7 +69,7 @@ export const createCustodyToolFactory = (env: Record<string, string | undefined>
       execute: async inputData => {
         // Generic shapes defeat zod's inference here; the schema above has already validated the input.
         const { environment: name, ...input } = inputData as { environment?: string } & Record<string, unknown>
-        const { environment, custody } = resolve(name)
+        const { environment, custody } = await resolve(name)
         try {
           const result = await spec.run({ input: input as z.infer<z.ZodObject<Shape>>, custody, environment })
           return { environment: environment.name, ...result }

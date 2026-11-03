@@ -4,7 +4,7 @@ import type { Environment } from './environments'
 export type CustodyClient = RippleCustody
 
 /** Makes the custody.js client for an Environment: the one dependency tests replace with a fake. */
-export type ConnectCustody = (environment: Environment) => CustodyClient
+export type ConnectCustody = (environment: Environment & { privateKey: string }) => CustodyClient
 
 export const connectCustody: ConnectCustody = environment =>
   new RippleCustody({

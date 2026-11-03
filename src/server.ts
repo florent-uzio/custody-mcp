@@ -4,7 +4,7 @@ import { z } from 'zod'
 import packageJson from '../package.json'
 import { connectCustody, type ConnectCustody } from './custody'
 import { createCustodyToolFactory } from './custody-tool'
-import { environmentsFromEnv } from './environments'
+import { loadEnvironments } from './environments'
 import { CUSTODY_INSTRUCTIONS } from './instructions'
 
 export type ServerOptions = {
@@ -28,16 +28,20 @@ export const createCustodyMcpServer = (options: ServerOptions) => {
       'List the Environments (Ripple Custody instances with your credentials) this server can use, with their Access level and which one is the default.',
     inputSchema: z.object({}),
     // Read on every call, so a bad setting fails one tool call instead of stopping the server.
-    execute: async () => ({
-      // Picked field by field: key material must never reach the conversation.
-      environments: environmentsFromEnv(options.env).map((environment, index) => ({
-        name: environment.name,
-        authUrl: environment.authUrl,
-        apiUrl: environment.apiUrl,
-        access: environment.access,
-        isDefault: index === 0,
-      })),
-    }),
+    execute: async () => {
+      const { environments, defaultName } = await loadEnvironments(options.env)
+      return {
+        // Picked field by field: key material must never reach the conversation.
+        environments: environments.map(environment => ({
+          name: environment.name,
+          authUrl: environment.authUrl,
+          apiUrl: environment.apiUrl,
+          access: environment.access,
+          defaultDomainId: environment.defaultDomainId,
+          isDefault: environment.name === defaultName,
+        })),
+      }
+    },
   })
 
   const defineCustodyTool = createCustodyToolFactory(options.env, options.connect ?? connectCustody)
