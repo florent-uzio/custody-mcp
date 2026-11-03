@@ -1,3 +1,4 @@
+import { CustodyError } from '@florent-uzio/custody'
 import { describe, expect, it, vi } from 'vitest'
 import type { AccessLevel } from './environments'
 import { callTool, configFile, DEV, fakeCustody } from './testing'
@@ -15,20 +16,6 @@ const options = (custody: object, access: AccessLevel = 'propose') => ({
 
 const ADDRESS = 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe'
 
-// The Environment's user, with its own user id in the Default domain.
-const me = async () => ({
-  loginId: { id: 'login-1' },
-  domains: [{ id: 'domain-1', alias: 'Main', userReference: { id: 'user-1' } }],
-})
-
-// The Custody account that holds ADDRESS.
-const findByAddress = async (address: string) => ({
-  domainId: 'domain-1',
-  accountId: 'account-1',
-  ledgerId: 'xrpl-testnet',
-  address,
-})
-
 const payment = {
   type: 'Payment',
   destination: { type: 'Address', address: 'rDestination' },
@@ -36,66 +23,48 @@ const payment = {
 }
 
 describe('proposeXrplIntent', () => {
-  it('proposes the transaction order that passed the Dry run, and returns its Intent id, payload id and status', async () => {
-    const dryRun = vi.fn(async (_request: object) => ({ type: 'v0_CreateTransactionOrder', success: true }))
-    const propose = vi.fn(async (_body: object) => ({ requestId: 'server-request-1' }))
+  it('proposes through custody.js with a Dry run first, and returns its Intent id, payload id and status', async () => {
+    const proposeIntent = vi.fn(async (_params: object, _options: object) => ({
+      requestId: 'server-request-1',
+      intentId: 'intent-1',
+      payloadId: 'payload-1',
+    }))
     const get = vi.fn(async ({ intentId }: { intentId: string }) => ({
       data: { id: intentId, state: { status: 'Open' } },
     }))
 
-    const output = await callTool(
-      options({ users: { me }, accounts: { findByAddress }, intents: { dryRun, propose, get } }),
-      'proposeXrplIntent',
-      { environment: 'dev', account: ADDRESS, operation: payment, description: 'Pay the supplier' },
-    )
-
-    const dryRunRequest = dryRun.mock.calls[0][0] as { id: string; payload: { id: string } }
-    expect(dryRunRequest).toEqual({
-      author: { domainId: 'domain-1', id: 'user-1' },
-      targetDomainId: 'domain-1',
-      id: expect.any(String),
-      expiryAt: expect.any(String),
-      payload: {
-        type: 'v0_CreateTransactionOrder',
-        id: expect.any(String),
-        accountId: 'account-1',
-        ledgerId: 'xrpl-testnet',
-        customProperties: {},
-        parameters: {
-          type: 'XRPL',
-          feeStrategy: { type: 'Priority', priority: 'Low' },
-          memos: [],
-          operation: payment,
-        },
-      },
-      customProperties: {},
+    const output = await callTool(options({ xrpl: { proposeIntent }, intents: { get } }), 'proposeXrplIntent', {
+      environment: 'dev',
+      account: ADDRESS,
+      operation: payment,
       description: 'Pay the supplier',
     })
-    expect(propose).toHaveBeenCalledWith({ request: { ...dryRunRequest, type: 'Propose' } })
+
+    expect(proposeIntent).toHaveBeenCalledWith(
+      { Account: ADDRESS, operation: payment },
+      { dryRun: true, domainId: 'domain-1', ledgerId: undefined, description: 'Pay the supplier' },
+    )
+    expect(get).toHaveBeenCalledWith({ domainId: 'domain-1', intentId: 'intent-1' })
     expect(output).toEqual({
       environment: 'dev',
       domainId: 'domain-1',
-      intentId: dryRunRequest.id,
-      payloadId: dryRunRequest.payload.id,
+      intentId: 'intent-1',
+      payloadId: 'payload-1',
       status: 'Open',
     })
   })
 
   it('rejects an invalid operation with a field-level message, without calling Custody', async () => {
-    const findByAddress = vi.fn()
-    const dryRun = vi.fn()
-    const propose = vi.fn()
+    const proposeIntent = vi.fn()
 
-    const output = await callTool(
-      options({ users: { me }, accounts: { findByAddress }, intents: { dryRun, propose } }),
-      'proposeXrplIntent',
-      { environment: 'dev', account: ADDRESS, operation: { type: 'Payment', amount: '1000000' } },
-    )
+    const output = await callTool(options({ xrpl: { proposeIntent } }), 'proposeXrplIntent', {
+      environment: 'dev',
+      account: ADDRESS,
+      operation: { type: 'Payment', amount: '1000000' },
+    })
 
     expect(output).toEqual({ error: expect.stringMatching(/operation.*destination/s) })
-    expect(findByAddress).not.toHaveBeenCalled()
-    expect(dryRun).not.toHaveBeenCalled()
-    expect(propose).not.toHaveBeenCalled()
+    expect(proposeIntent).not.toHaveBeenCalled()
   })
 
   it.each([
@@ -116,44 +85,64 @@ describe('proposeXrplIntent', () => {
       flags: [],
     },
   ])('proposes a $type operation as given', async operation => {
-    const dryRun = vi.fn(async (_request: object) => ({ type: 'v0_CreateTransactionOrder', success: true }))
-    const propose = vi.fn(async () => ({ requestId: 'server-request-1' }))
+    const proposeIntent = vi.fn(async (_params: object, _options: object) => ({
+      requestId: 'server-request-1',
+      intentId: 'intent-1',
+      payloadId: 'payload-1',
+    }))
     const get = vi.fn(async () => ({ data: { state: { status: 'Open' } } }))
 
-    const output = await callTool(
-      options({ users: { me }, accounts: { findByAddress }, intents: { dryRun, propose, get } }),
-      'proposeXrplIntent',
-      { environment: 'dev', account: ADDRESS, operation },
-    )
+    const output = await callTool(options({ xrpl: { proposeIntent }, intents: { get } }), 'proposeXrplIntent', {
+      environment: 'dev',
+      account: ADDRESS,
+      operation,
+    })
 
-    expect(dryRun.mock.calls[0][0]).toMatchObject({ payload: { parameters: { operation } } })
-    expect(propose).toHaveBeenCalledTimes(1)
+    expect(proposeIntent).toHaveBeenCalledWith(
+      { Account: ADDRESS, operation },
+      expect.objectContaining({ dryRun: true }),
+    )
     expect(output).toMatchObject({ environment: 'dev', status: 'Open' })
   })
 
-  it("does not propose when the Dry run fails, and returns Custody's reasons", async () => {
-    const dryRun = vi.fn(async () => ({
-      type: 'v0_CreateTransactionOrder',
-      success: false,
-      errors: ['Destination rDestination does not exist'],
-    }))
-    const propose = vi.fn()
+  it("returns Custody's reasons when the Dry run fails, saying nothing was proposed", async () => {
+    // custody.js proposes nothing when its Dry run fails, and throws with Custody's reasons.
+    const proposeIntent = vi.fn(async () => {
+      throw new CustodyError({
+        reason: 'Dry run failed, intent not proposed: Destination rDestination does not exist',
+      })
+    })
+    const get = vi.fn()
 
-    const output = await callTool(
-      options({ users: { me }, accounts: { findByAddress }, intents: { dryRun, propose } }),
-      'proposeXrplIntent',
-      { environment: 'dev', account: ADDRESS, operation: payment },
-    )
+    const output = await callTool(options({ xrpl: { proposeIntent }, intents: { get } }), 'proposeXrplIntent', {
+      environment: 'dev',
+      account: ADDRESS,
+      operation: payment,
+    })
 
-    expect(output).toEqual({ error: expect.stringContaining('Destination rDestination does not exist') })
-    expect(dryRun).toHaveBeenCalled()
-    expect(propose).not.toHaveBeenCalled()
+    expect(output).toEqual({
+      error: expect.stringMatching(/not proposed.*Destination rDestination does not exist/),
+    })
+    expect(get).not.toHaveBeenCalled()
+  })
+
+  it('says when no Custody account holds the address', async () => {
+    const proposeIntent = vi.fn(async () => {
+      throw new CustodyError({ reason: `Account not found for address ${ADDRESS} in domain domain-1` })
+    })
+
+    const output = await callTool(options({ xrpl: { proposeIntent } }), 'proposeXrplIntent', {
+      environment: 'dev',
+      account: ADDRESS,
+      operation: payment,
+    })
+
+    expect(output).toEqual({ error: expect.stringContaining(`Account not found for address ${ADDRESS}`) })
   })
 
   it('refuses on a read-only Environment, or without a named Environment, without calling Custody', async () => {
-    const findByAddress = vi.fn()
-    const dryRun = vi.fn()
-    const custody = { users: { me }, accounts: { findByAddress }, intents: { dryRun } }
+    const proposeIntent = vi.fn()
+    const custody = { xrpl: { proposeIntent } }
 
     const readOnly = await callTool(options(custody, 'read'), 'proposeXrplIntent', {
       environment: 'dev',
@@ -164,7 +153,51 @@ describe('proposeXrplIntent', () => {
 
     expect(readOnly).toEqual({ error: expect.stringContaining('"propose" Access level') })
     expect(unnamed).toEqual({ error: expect.stringContaining('environment') })
-    expect(findByAddress).not.toHaveBeenCalled()
-    expect(dryRun).not.toHaveBeenCalled()
+    expect(proposeIntent).not.toHaveBeenCalled()
+  })
+})
+
+describe('dryRunXrplIntent', () => {
+  it("runs a Dry run through custody.js without proposing, even on a read-only default Environment, and returns Custody's verdict and fee", async () => {
+    const dryRunIntent = vi.fn(async (_params: object, _options: object) => ({
+      type: 'v0_CreateTransactionOrder',
+      success: false,
+      errors: ['Destination rDestination does not exist'],
+      result: { type: 'Failure', reason: 'tecNO_DST', hint: {} },
+      estimate: { type: 'XRPL', fee: '12' },
+      intentId: 'intent-1',
+      payloadId: 'payload-1',
+    }))
+    const proposeIntent = vi.fn()
+
+    const output = await callTool(options({ xrpl: { dryRunIntent, proposeIntent } }, 'read'), 'dryRunXrplIntent', {
+      account: ADDRESS,
+      operation: payment,
+    })
+
+    expect(dryRunIntent).toHaveBeenCalledWith(
+      { Account: ADDRESS, operation: payment },
+      { domainId: 'domain-1', ledgerId: undefined, description: undefined },
+    )
+    expect(output).toEqual({
+      environment: 'dev',
+      domainId: 'domain-1',
+      success: false,
+      errors: ['Destination rDestination does not exist'],
+      estimate: { type: 'XRPL', fee: '12' },
+    })
+    expect(proposeIntent).not.toHaveBeenCalled()
+  })
+
+  it('rejects an invalid operation with a field-level message, without calling Custody', async () => {
+    const dryRunIntent = vi.fn()
+
+    const output = await callTool(options({ xrpl: { dryRunIntent } }, 'read'), 'dryRunXrplIntent', {
+      account: ADDRESS,
+      operation: { type: 'Payment', amount: '1000000' },
+    })
+
+    expect(output).toEqual({ error: expect.stringMatching(/operation.*destination/s) })
+    expect(dryRunIntent).not.toHaveBeenCalled()
   })
 })

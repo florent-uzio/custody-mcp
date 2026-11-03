@@ -11,7 +11,7 @@ export const CUSTODY_INSTRUCTIONS = `
     ## Proposing
     - Use proposeXrplIntent for XRPL transactions (Payment, TrustSet, MPToken and ConfidentialMPT operations) and proposeIntent with a raw \`v0_*\` payload for other Intent types.
     - Write tools (proposeXrplIntent, proposeIntent) need an Environment with the \`propose\` Access level, and must name their \`environment\`: they never use the default.
-    - Both run a Dry run first and propose nothing if it fails. Use dryRunIntent to check an Intent without proposing it.
+    - Both run a Dry run first and propose nothing if it fails. Use dryRunXrplIntent (XRPL transactions) or dryRunIntent (raw \`v0_*\` payloads) to check an Intent without proposing it.
     - Both return at once: approvers act later. Use waitForIntent to follow it; "still awaiting approval" is not an error.
     - Never propose the same Intent again because a result looks incomplete: check it with getIntent first.
     - \`Executed\` means Custody accepted the order, not that it settled on the ledger.
