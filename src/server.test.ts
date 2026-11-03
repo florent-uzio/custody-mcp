@@ -17,6 +17,7 @@ describe('custody MCP server', () => {
     const { tools } = await createCustodyMcpServer({ env: { CUSTODY_MCP_CONFIG: NO_CONFIG } }).getToolListInfo()
 
     expect(tools.map(tool => tool.name).sort()).toEqual([
+      'dryRunIntent',
       'findAccountByAddress',
       'getAccount',
       'getAccountBalances',
@@ -36,6 +37,8 @@ describe('custody MCP server', () => {
       'listTickers',
       'listTransactionOrders',
       'listTransfers',
+      'proposeIntent',
+      'waitForIntent',
     ])
   })
 

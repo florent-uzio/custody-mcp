@@ -8,6 +8,7 @@ import { createCustodyToolFactory } from './custody-tool'
 import { createIntentTools } from './intent-tools'
 import { loadEnvironments } from './environments'
 import { CUSTODY_INSTRUCTIONS } from './instructions'
+import { createProposeTools } from './propose-tools'
 import { createReferenceTools } from './reference-tools'
 import { createTransactionTools } from './transaction-tools'
 
@@ -79,6 +80,7 @@ export const createCustodyMcpServer = (options: ServerOptions) => {
       getMe,
       ...createAccountTools(defineCustodyTool),
       ...createIntentTools(defineCustodyTool),
+      ...createProposeTools(defineCustodyTool),
       ...createTransactionTools(defineCustodyTool),
       ...createReferenceTools(defineCustodyTool),
     },
