@@ -1,7 +1,7 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
 import type { ConnectCustody, CustodyClient } from './custody'
-import { loadEnvironments, type Environment } from './environments'
+import { ACCESS_LEVELS, loadEnvironments, type AccessLevel, type Environment } from './environments'
 import { resolveKeyReference } from './key-references'
 
 const environmentInput = {
@@ -9,6 +9,13 @@ const environmentInput = {
     .string()
     .optional()
     .describe('Name of the Environment to use (see listEnvironments). Defaults to the default Environment.'),
+}
+
+// A write never falls back to the default Environment, so a changed default cannot redirect it (ADR-0001).
+const writeEnvironmentInput = {
+  environment: z
+    .string()
+    .describe('Name of the Environment to act in (see listEnvironments). Required: writes never use the default.'),
 }
 
 /** Input of the tools that act in one Custody domain (spread into their `input`). */
@@ -64,6 +71,8 @@ export const nextCursor = (page: Page) =>
 type CustodyToolSpec<Shape extends z.ZodRawShape, Result extends object> = {
   id: string
   description: string
+  /** The Access level the Environment needs for this tool (default `read`). */
+  access?: AccessLevel
   input: Shape
   run: (args: {
     input: z.infer<z.ZodObject<Shape>>
@@ -82,7 +91,7 @@ export const createCustodyToolFactory = (env: Record<string, string | undefined>
   // is made, and the client is remade when the Environment's settings change in the config file.
   const clients = new Map<string, { settings: string; custody: CustodyClient }>()
 
-  const resolve = async (name: string | undefined) => {
+  const findEnvironment = async (name: string | undefined) => {
     const { environments, defaultName } = await loadEnvironments(env)
 
     const wanted = name ?? defaultName
@@ -91,7 +100,10 @@ export const createCustodyToolFactory = (env: Record<string, string | undefined>
       const known = environments.map(item => item.name).join(', ')
       throw new Error(`Unknown Environment "${wanted}". Known Environments: ${known}.`)
     }
+    return environment
+  }
 
+  const clientFor = async (environment: Environment) => {
     const settings = JSON.stringify([
       environment.authUrl,
       environment.apiUrl,
@@ -108,18 +120,29 @@ export const createCustodyToolFactory = (env: Record<string, string | undefined>
       cached = { settings, custody: connect({ ...environment, privateKey }) }
       clients.set(environment.name, cached)
     }
-    return { environment, custody: cached.custody }
+    return cached.custody
   }
 
-  return <Shape extends z.ZodRawShape, Result extends object>(spec: CustodyToolSpec<Shape, Result>) =>
-    createTool({
+  return <Shape extends z.ZodRawShape, Result extends object>(spec: CustodyToolSpec<Shape, Result>) => {
+    const access = spec.access ?? 'read'
+    return createTool({
       id: spec.id,
       description: spec.description,
-      inputSchema: z.object({ ...environmentInput, ...spec.input }),
+      inputSchema: z.object({
+        ...(access === 'read' ? environmentInput : writeEnvironmentInput),
+        ...spec.input,
+      }),
       execute: async inputData => {
         // Generic shapes defeat zod's inference here; the schema above has already validated the input.
         const { environment: name, ...input } = inputData as { environment?: string } & Record<string, unknown>
-        const { environment, custody } = await resolve(name)
+        const environment = await findEnvironment(name)
+        // Checked before the key is read, so a read-only Environment never reaches Custody.
+        if (ACCESS_LEVELS.indexOf(environment.access) < ACCESS_LEVELS.indexOf(access)) {
+          throw new Error(
+            `${spec.id} needs the "${access}" Access level, but Environment "${environment.name}" has "${environment.access}".`,
+          )
+        }
+        const custody = await clientFor(environment)
         try {
           const result = await spec.run({ input: input as z.infer<z.ZodObject<Shape>>, custody, environment })
           return { environment: environment.name, ...result }
@@ -128,6 +151,7 @@ export const createCustodyToolFactory = (env: Record<string, string | undefined>
         }
       },
     })
+  }
 }
 
 export type DefineCustodyTool = ReturnType<typeof createCustodyToolFactory>
