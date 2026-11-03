@@ -1,0 +1,52 @@
+{
+  "name": "@florent-uzio/custody-mcp",
+  "version": "0.0.0",
+  "description": "MCP server for Ripple Custody, built on custody.js",
+  "license": "ISC",
+  "author": "Florent Uzio",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/florent-uzio/custody-mcp.git"
+  },
+  "type": "module",
+  "bin": {
+    "custody-mcp": "dist/custody-mcp.js"
+  },
+  "files": [
+    "dist/custody-mcp.js",
+    "dist/THIRD_PARTY_LICENSES.txt"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "keywords": [
+    "ripple-custody",
+    "mcp",
+    "model-context-protocol"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc",
+    "mcp": "tsx src/stdio.ts",
+    "build": "node scripts/build.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@florent-uzio/custody": "^2.14.0",
+    "@mastra/core": "^1.81.0",
+    "@mastra/mcp": "^2.7.0",
+    "@types/node": "^22.20.5",
+    "esbuild": "^0.28.2",
+    "prettier": "^3.9.10",
+    "prettier-plugin-organize-imports": "^4.3.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0",
+    "zod": "^4.6.7"
+  }
+}
