@@ -3,46 +3,8 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import packageJson from '../package.json'
-import type { CustodyClient } from './custody'
-import { createCustodyMcpServer, type ServerOptions } from './server'
-
-/** A real config file in a fresh temp dir; returns its path, or a path with no file when given nothing. */
-const configFile = (config?: object) => {
-  const file = path.join(mkdtempSync(path.join(tmpdir(), 'custody-mcp-')), 'config.json')
-  if (config !== undefined) {
-    writeFileSync(file, JSON.stringify(config))
-  }
-  return file
-}
-
-// Keeps tests away from the developer's own config file.
-const NO_CONFIG = configFile()
-
-const ENV_VARS = {
-  CUSTODY_MCP_CONFIG: NO_CONFIG,
-  AUTH_URL: 'https://auth.example.test/token',
-  API_URL: 'https://api.example.test',
-  PUBLIC_KEY: 'MCowBQYDK2VwAyEAPUBLICKEYPUBLICKEYPUBLICKEYPUBLICKEYPU=',
-  PRIVATE_KEY: '-----BEGIN PRIVATE KEY-----\nSECRETSECRETSECRET\n-----END PRIVATE KEY-----',
-}
-
-const DEV = {
-  authUrl: 'https://auth.dev.test/token',
-  apiUrl: 'https://api.dev.test',
-  publicKey: 'MCowBQYDK2VwAyEADEVDEVDEVDEVDEVDEVDEVDEVDEVDEVDEVDEVDEVDEV=',
-}
-
-/** Stands in for custody.js: only the namespaces a test needs, with canned answers. */
-const fakeCustody = (namespaces: object) => namespaces as CustodyClient
-
-const callTool = async (options: ServerOptions, toolId: string, args: object = {}) => {
-  try {
-    const result = await createCustodyMcpServer(options).executeTool(toolId, args)
-    return (result as { output?: unknown }).output
-  } catch (error) {
-    return { error: (error as Error).message }
-  }
-}
+import { createCustodyMcpServer } from './server'
+import { callTool, configFile, DEV, ENV_VARS, fakeCustody, NO_CONFIG } from './testing'
 
 describe('custody MCP server', () => {
   it('returns the package name and version from getMcpVersion', async () => {
@@ -54,7 +16,18 @@ describe('custody MCP server', () => {
   it('exposes each tool under its camelCase id', async () => {
     const { tools } = await createCustodyMcpServer({ env: { CUSTODY_MCP_CONFIG: NO_CONFIG } }).getToolListInfo()
 
-    expect(tools.map(tool => tool.name).sort()).toEqual(['getMcpVersion', 'getMe', 'listEnvironments'])
+    expect(tools.map(tool => tool.name).sort()).toEqual([
+      'findAccountByAddress',
+      'getAccount',
+      'getAccountBalances',
+      'getBackendVersion',
+      'getMcpVersion',
+      'getMe',
+      'listAccountAddresses',
+      'listAccounts',
+      'listDomains',
+      'listEnvironments',
+    ])
   })
 
   it('gives the client instructions on Environments', () => {

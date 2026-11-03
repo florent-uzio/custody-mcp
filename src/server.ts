@@ -3,6 +3,7 @@ import { MCPServer } from '@mastra/mcp'
 import { z } from 'zod'
 import packageJson from '../package.json'
 import { connectCustody, type ConnectCustody } from './custody'
+import { createAccountTools } from './account-tools'
 import { createCustodyToolFactory } from './custody-tool'
 import { loadEnvironments } from './environments'
 import { CUSTODY_INSTRUCTIONS } from './instructions'
@@ -54,12 +55,20 @@ export const createCustodyMcpServer = (options: ServerOptions) => {
     run: async ({ custody }) => ({ me: await custody.users.me() }),
   })
 
+  const getBackendVersion = defineCustodyTool({
+    id: 'getBackendVersion',
+    description:
+      'Get the version of the Ripple Custody instance behind this Environment, to tell an MCP problem from a backend one.',
+    input: {},
+    run: async ({ custody }) => ({ backendVersion: await custody.backendVersion() }),
+  })
+
   return new MCPServer({
     id: 'custody-mcp',
     name: 'Ripple Custody',
     version: packageJson.version,
     description: 'Read from and act on Ripple Custody instances as your own Custody user',
     instructions: CUSTODY_INSTRUCTIONS,
-    tools: { getMcpVersion, listEnvironments, getMe },
+    tools: { getMcpVersion, getBackendVersion, listEnvironments, getMe, ...createAccountTools(defineCustodyTool) },
   })
 }

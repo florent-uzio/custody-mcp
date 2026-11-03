@@ -11,6 +11,42 @@ const environmentInput = {
     .describe('Name of the Environment to use (see listEnvironments). Defaults to the default Environment.'),
 }
 
+/** Input of the tools that act in one Custody domain (spread into their `input`). */
+export const domainInput = {
+  domainId: z
+    .string()
+    .optional()
+    .describe("Id of the Custody domain to use (see listDomains). Defaults to the Environment's Default domain."),
+}
+
+/**
+ * The domain a call acts in: the one it names, else the Environment's Default domain, else the user's
+ * only domain (the env-var Environment cannot set a Default domain).
+ */
+export const domainIdFor = async ({
+  input,
+  environment,
+  custody,
+}: {
+  input: { domainId?: string }
+  environment: Environment
+  custody: CustodyClient
+}) => {
+  const domainId = input.domainId ?? environment.defaultDomainId
+  if (domainId !== undefined) {
+    return domainId
+  }
+
+  const { domains } = await custody.users.me()
+  if (domains.length === 1) {
+    return domains[0].id
+  }
+  const listed = domains.map(domain => `${domain.alias} (${domain.id})`).join(', ')
+  throw new Error(
+    `Environment "${environment.name}" has no Default domain and its user belongs to several domains: ${listed}. Pass a domainId.`,
+  )
+}
+
 type CustodyToolSpec<Shape extends z.ZodRawShape, Result extends object> = {
   id: string
   description: string
@@ -79,3 +115,5 @@ export const createCustodyToolFactory = (env: Record<string, string | undefined>
       },
     })
 }
+
+export type DefineCustodyTool = ReturnType<typeof createCustodyToolFactory>
