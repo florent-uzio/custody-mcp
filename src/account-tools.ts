@@ -4,7 +4,7 @@ import { domainIdFor, domainInput, type DefineCustodyTool } from './custody-tool
 const accountInput = { accountId: z.string().describe('Id of the Custody account (see listAccounts).') }
 
 const pageInput = {
-  limit: z.number().int().min(1).default(20).describe('How many items to return (default 20).'),
+  limit: z.number().int().min(1).max(100).default(20).describe('How many items to return (default 20, at most 100).'),
   cursor: z.string().optional().describe('The nextCursor of the previous page, to get the page after it.'),
 }
 

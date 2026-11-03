@@ -72,6 +72,15 @@ describe('read tools for domains and accounts', () => {
       expect(list).toHaveBeenCalledWith({ limit: 5, startingAfter: 'domain-2' })
       expect(output).not.toHaveProperty('nextCursor')
     })
+
+    it('refuses a page of more than 100 items without calling Custody', async () => {
+      const list = vi.fn(async () => domainsPage)
+
+      const output = await callTool(options(fakeCustody({ domains: { list } })), 'listDomains', { limit: 101 })
+
+      expect(output).toEqual({ error: expect.stringContaining('limit') })
+      expect(list).not.toHaveBeenCalled()
+    })
   })
   describe('listAccounts', () => {
     const accountsPage = {
