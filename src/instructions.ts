@@ -16,6 +16,11 @@ export const CUSTODY_INSTRUCTIONS = `
     - Never propose the same Intent again because a result looks incomplete: check it with getIntent first.
     - \`Executed\` means Custody accepted the order, not that it settled on the ledger.
 
+    ## Approving and rejecting
+    - approveIntent and rejectIntent decide on an Intent as the Environment's user. They need an Environment with the \`approve\` Access level, and must name their \`environment\`.
+    - Before you call approveIntent or rejectIntent, summarize the Intent (getIntent: type, description, author, payload) and get an explicit "yes" from the user for that Intent. Never approve or reject on your own initiative.
+    - When the client can, the tool also shows the user a confirmation; if they decline, nothing is decided. A result saying no in-client confirmation was shown means the yes you got was the only check.
+
     ## Responses
     - Explain results in plain terms and explain Custody errors clearly.
     - Never ask for, show or repeat a private key.
