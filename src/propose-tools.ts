@@ -9,6 +9,7 @@ import { z } from 'zod'
 import type { CustodyClient } from './custody'
 import { domainIdFor, domainInput, type DefineCustodyTool } from './custody-tool'
 import type { Environment } from './environments'
+import { xrplOperation } from './xrpl-operation'
 
 const intentInput = {
   ...domainInput,
@@ -19,6 +20,9 @@ const intentInput = {
   description: z.string().optional().describe('A human-readable description of the Intent, shown to approvers.'),
 }
 
+// The Dry run is what validates a raw payload against Custody's schema.
+const rawPayload = (input: { payload: object }) => input.payload as unknown as IntentPayload
+
 // The same lifetime custody.js gives the Intents it proposes.
 const INTENT_LIFETIME_MS = 24 * 60 * 60 * 1000
 
@@ -28,32 +32,61 @@ type IntentArgs = {
   environment: Environment
 }
 
+type IntentPayload = Core_IntentDryRunRequest['payload']
+
 /** The request around a payload: the same one is dry-run and then proposed, so approvers get what was checked. */
-const buildRequest = async (args: IntentArgs) => {
-  const domainId = await domainIdFor(args)
-  const { domains } = await args.custody.users.me()
+const buildRequest = async (
+  { custody, environment, input }: Pick<IntentArgs, 'custody' | 'environment'> & { input: { description?: string } },
+  domainId: string,
+  payload: IntentPayload,
+) => {
+  const { domains } = await custody.users.me()
   const userId = domains.find(domain => domain.id === domainId)?.userReference.id
   if (userId === undefined) {
-    throw new Error(`The user of Environment "${args.environment.name}" does not belong to domain ${domainId}.`)
+    throw new Error(`The user of Environment "${environment.name}" does not belong to domain ${domainId}.`)
   }
-  const { payload, description } = args.input
+  const { description } = input
   const request: Core_IntentDryRunRequest = {
     author: { domainId, id: userId },
     targetDomainId: domainId,
     id: randomUUID(),
     expiryAt: new Date(Date.now() + INTENT_LIFETIME_MS).toISOString(),
-    // The Dry run is what validates the payload against Custody's schema.
-    payload: payload as unknown as Core_IntentDryRunRequest['payload'],
+    payload,
     customProperties: {},
     ...(description === undefined ? {} : { description }),
   }
-  return { domainId, request }
+  return request
 }
 
 const dryRun = async (custody: CustodyClient, request: Core_IntentDryRunRequest) => {
   const { success, errors = [] } = await custody.intents.dryRun(request)
   return { success, errors }
 }
+
+/** Dry-runs the request and proposes it unchanged only if the Dry run passed. */
+const proposeChecked = async (custody: CustodyClient, domainId: string, request: Core_IntentDryRunRequest) => {
+  const result = await dryRun(custody, request)
+  if (!result.success) {
+    const reasons = result.errors.length > 0 ? result.errors.join('; ') : 'Custody gave no reason'
+    throw new Error(`The Dry run failed, so nothing was proposed: ${reasons}`)
+  }
+  // custody.js types the proposed payload apart from the dry-run one; both are the raw payload given.
+  await custody.intents.propose({ request: { ...request, type: 'Propose' } as Core_ProposeIntentBody['request'] })
+  const proposed = { domainId, intentId: request.id }
+  // From here the Intent exists: an error would make the model propose it again.
+  try {
+    const intent = await custody.intents.get(proposed)
+    return { ...proposed, status: intent.data.state.status }
+  } catch {
+    return {
+      ...proposed,
+      note: 'Custody accepted the Propose but its status could not be read yet. Use getIntent or waitForIntent; do not propose it again.',
+    }
+  }
+}
+
+// What custody.js gives an XRPL transaction order by default (custody.js#294 would let us reuse its builder).
+const DEFAULT_FEE_STRATEGY = { type: 'Priority', priority: 'Low' } as const
 
 const POLL_INTERVAL_MS = 3000
 
@@ -127,8 +160,44 @@ export const createProposeTools = (defineCustodyTool: DefineCustodyTool) => ({
       'Run a Dry run of an Intent with a raw `v0_*` payload: Custody says whether it would be accepted and why not, without proposing anything.',
     input: intentInput,
     run: async args => {
-      const { domainId, request } = await buildRequest(args)
+      const domainId = await domainIdFor(args)
+      const request = await buildRequest(args, domainId, rawPayload(args.input))
       return { domainId, ...(await dryRun(args.custody, request)) }
+    },
+  }),
+
+  proposeXrplIntent: defineCustodyTool({
+    id: 'proposeXrplIntent',
+    description:
+      'Propose an XRPL transaction from a Custody account. Runs a Dry run first and proposes nothing if it fails. Returns the Intent id, the payload id (the transaction order) and status at once, without waiting for approvals (see waitForIntent).',
+    access: 'propose',
+    input: {
+      domainId: domainInput.domainId,
+      account: z.string().describe('XRPL address of the Custody account the transaction is sent from.'),
+      ledgerId: z.string().optional().describe('Id of the ledger, when the address is on several.'),
+      operation: xrplOperation,
+      description: intentInput.description,
+    },
+    run: async args => {
+      const { custody, input } = args
+      const account = await custody.accounts.findByAddress(input.account, {
+        ledgerId: input.ledgerId,
+        domainId: input.domainId,
+      })
+      if (account === undefined) {
+        throw new Error(`No Custody account holds the XRPL address ${input.account}.`)
+      }
+      const payloadId = randomUUID()
+      const payload = {
+        type: 'v0_CreateTransactionOrder',
+        id: payloadId,
+        accountId: account.accountId,
+        ledgerId: account.ledgerId,
+        customProperties: {},
+        parameters: { type: 'XRPL', feeStrategy: DEFAULT_FEE_STRATEGY, memos: [], operation: input.operation },
+      } as IntentPayload
+      const request = await buildRequest(args, account.domainId, payload)
+      return { ...(await proposeChecked(custody, account.domainId, request)), payloadId }
     },
   }),
 
@@ -139,26 +208,8 @@ export const createProposeTools = (defineCustodyTool: DefineCustodyTool) => ({
     access: 'propose',
     input: intentInput,
     run: async args => {
-      const { custody } = args
-      const { domainId, request } = await buildRequest(args)
-      const result = await dryRun(custody, request)
-      if (!result.success) {
-        const reasons = result.errors.length > 0 ? result.errors.join('; ') : 'Custody gave no reason'
-        throw new Error(`The Dry run failed, so nothing was proposed: ${reasons}`)
-      }
-      // custody.js types the proposed payload apart from the dry-run one; both are the raw payload given.
-      await custody.intents.propose({ request: { ...request, type: 'Propose' } as Core_ProposeIntentBody['request'] })
-      const proposed = { domainId, intentId: request.id }
-      // From here the Intent exists: an error would make the model propose it again.
-      try {
-        const intent = await custody.intents.get(proposed)
-        return { ...proposed, status: intent.data.state.status }
-      } catch {
-        return {
-          ...proposed,
-          note: 'Custody accepted the Propose but its status could not be read yet. Use getIntent or waitForIntent; do not propose it again.',
-        }
-      }
+      const domainId = await domainIdFor(args)
+      return proposeChecked(args.custody, domainId, await buildRequest(args, domainId, rawPayload(args.input)))
     },
   }),
 })
