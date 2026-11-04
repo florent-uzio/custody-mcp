@@ -69,7 +69,8 @@ const dryRun = async (custody: CustodyClient, request: Core_IntentDryRunRequest)
 const proposeChecked = async (custody: CustodyClient, domainId: string, request: Core_IntentDryRunRequest) => {
   const result = await dryRun(custody, request)
   if (!result.success) {
-    // Worded as custody.js words a failed XRPL Dry run, so both Propose tools fail alike.
+    // Worded as custody.js words a failed XRPL Dry run, so both Propose tools fail alike. With no reasons,
+    // custody.js would leave the message blank after the colon; "unknown error" says so instead.
     const reasons = result.errors.length > 0 ? result.errors.join(', ') : 'unknown error'
     throw new Error(`Dry run failed, intent not proposed: ${reasons}`)
   }
