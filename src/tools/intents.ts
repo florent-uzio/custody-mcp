@@ -1,6 +1,6 @@
 import { CustodyError, type Core_RemainingDomainUsers, type Core_TrustedIntent } from '@florent-uzio/custody'
 import { z } from 'zod'
-import { domainIdFor, domainInput, nextCursor, pageInput, pageQuery, type DefineCustodyTool } from './define'
+import type { DefineCustodyTool } from './define'
 import type { CustodyClient } from '../custody'
 
 // custody.js 2.14 types these two responses wrongly: getIntents returns a page of Intents, and
@@ -47,15 +47,15 @@ export const createIntentTools = (defineCustodyTool: DefineCustodyTool) => ({
     id: 'listIntents',
     description:
       'List the Intents of a Custody domain, one page at a time: type, status, author and the approvals still missing.',
-    input: { ...domainInput, ...pageInput },
+    domain: true,
+    paged: true,
+    input: {},
     run: async args => {
-      const domainId = await domainIdFor(args)
-      const { custody } = args
-      const page = await listIntents(custody, { domainId }, pageQuery(args.input))
+      const { custody, domainId } = args
+      const page = await listIntents(custody, { domainId }, args.pageQuery)
       return {
-        domainId,
         intents: await Promise.all(page.items.map(item => summarize(custody, domainId, item))),
-        ...nextCursor(page),
+        nextCursor: page.nextStartingAfter,
       }
     },
   }),
@@ -64,24 +64,24 @@ export const createIntentTools = (defineCustodyTool: DefineCustodyTool) => ({
     id: 'listPendingApprovals',
     description:
       "List the open Intents of a Custody domain still awaiting the Environment user's decision, one page at a time. A page can hold fewer items than the limit, or none, and still have a nextCursor: follow it to see the rest.",
-    input: { ...domainInput, ...pageInput },
+    domain: true,
+    paged: true,
+    input: {},
     run: async args => {
-      const domainId = await domainIdFor(args)
-      const { custody } = args
+      const { custody, domainId } = args
       const [me, page] = await Promise.all([
         custody.users.me(),
-        listIntents(custody, { domainId }, { ...pageQuery(args.input), 'state.status': ['Open'] }),
+        listIntents(custody, { domainId }, { ...args.pageQuery, 'state.status': ['Open'] }),
       ])
       // The user has one id per domain it belongs to; an approver can sit in a parent domain.
       const isMe = (userDomainId: string, userId: string) =>
         me.domains.some(domain => domain.id === userDomainId && domain.userReference.id === userId)
       const intents = await Promise.all(page.items.map(item => summarize(custody, domainId, item)))
       return {
-        domainId,
         intents: intents.filter(intent =>
           intent.missingApprovals.some(({ domainId, users }) => users.some(userId => isMe(domainId, userId))),
         ),
-        ...nextCursor(page),
+        nextCursor: page.nextStartingAfter,
       }
     },
   }),
@@ -90,13 +90,14 @@ export const createIntentTools = (defineCustodyTool: DefineCustodyTool) => ({
     id: 'getIntent',
     description:
       'Get one Intent of a Custody domain: its summary, what it proposes (payload), why it failed if it did, and the approvals still missing.',
-    input: { ...domainInput, intentId: z.string().describe('Id of the Intent (see listIntents).') },
+    domain: true,
+    input: { intentId: z.string().describe('Id of the Intent (see listIntents).') },
     run: async args => {
-      const domainId = await domainIdFor(args)
+      const { domainId } = args
       const intent = await args.custody.intents.get({ domainId, intentId: args.input.intentId })
       const { payload } = intent.data.details
       const { error } = intent.data.state
-      return { domainId, intent: { ...(await summarize(args.custody, domainId, intent)), payload, error } }
+      return { intent: { ...(await summarize(args.custody, domainId, intent)), payload, error } }
     },
   }),
 })

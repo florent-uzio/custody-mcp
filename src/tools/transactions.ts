@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { explorerUrlField } from './explorer-links'
-import { domainIdFor, domainInput, nextCursor, pageInput, pageQuery, type DefineCustodyTool } from './define'
+import type { DefineCustodyTool } from './define'
 
 /** Read tools for what Custody moved and sent to the ledgers: transfers, transaction orders, transactions. */
 export const createTransactionTools = (defineCustodyTool: DefineCustodyTool) => ({
@@ -8,20 +8,19 @@ export const createTransactionTools = (defineCustodyTool: DefineCustodyTool) => 
     id: 'listTransfers',
     description:
       'List the transfers (incoming and outgoing movements of assets) of a Custody domain, one page at a time. Values are in the smallest unit of the ticker.',
+    domain: true,
+    paged: true,
     input: {
-      ...domainInput,
       accountId: z.string().optional().describe('Id of a Custody account, to list only its transfers.'),
-      ...pageInput,
     },
     run: async args => {
-      const domainId = await domainIdFor(args)
+      const { domainId } = args
       const { accountId } = args.input
       const page = await args.custody.transactions.transfers(
         { domainId },
-        { ...pageQuery(args.input), ...(accountId === undefined ? {} : { accountId }) },
+        { ...args.pageQuery, ...(accountId === undefined ? {} : { accountId }) },
       )
       return {
-        domainId,
         transfers: page.items.map(item => ({
           id: item.id,
           kind: item.kind,
@@ -33,7 +32,7 @@ export const createTransactionTools = (defineCustodyTool: DefineCustodyTool) => 
           quarantineStatus: item.quarantineStatus,
           registeredAt: item.registeredAt,
         })),
-        ...nextCursor(page),
+        nextCursor: page.nextStartingAfter,
       }
     },
   }),
@@ -41,11 +40,12 @@ export const createTransactionTools = (defineCustodyTool: DefineCustodyTool) => 
   getTransfer: defineCustodyTool({
     id: 'getTransfer',
     description: 'Get one transfer of a Custody domain in full, with its senders, recipient and ledger data.',
-    input: { ...domainInput, transferId: z.string().describe('Id of the transfer (see listTransfers).') },
+    domain: true,
+    input: { transferId: z.string().describe('Id of the transfer (see listTransfers).') },
     run: async args => {
-      const domainId = await domainIdFor(args)
+      const { domainId } = args
       const transfer = await args.custody.transactions.transfer({ domainId, transferId: args.input.transferId })
-      return { domainId, transfer }
+      return { transfer }
     },
   }),
 
@@ -53,20 +53,19 @@ export const createTransactionTools = (defineCustodyTool: DefineCustodyTool) => 
     id: 'listTransactionOrders',
     description:
       'List the transaction orders (what an executed Intent asks Custody to send to a ledger) of a Custody domain, one page at a time. Follow a transaction order to its transaction with listTransactions.',
+    domain: true,
+    paged: true,
     input: {
-      ...domainInput,
       intentId: z.string().optional().describe('Id of an Intent, to list only the transaction orders it produced.'),
-      ...pageInput,
     },
     run: async args => {
-      const domainId = await domainIdFor(args)
+      const { domainId } = args
       const { intentId } = args.input
       const page = await args.custody.transactions.orders(
         { domainId },
-        { ...pageQuery(args.input), ...(intentId === undefined ? {} : { intentId }) },
+        { ...args.pageQuery, ...(intentId === undefined ? {} : { intentId }) },
       )
       return {
-        domainId,
         transactionOrders: page.items.map(({ data }) => ({
           id: data.id,
           accountId: data.accountId,
@@ -74,7 +73,7 @@ export const createTransactionTools = (defineCustodyTool: DefineCustodyTool) => 
           type: data.parameters.type,
           createdAt: data.metadata.createdAt,
         })),
-        ...nextCursor(page),
+        nextCursor: page.nextStartingAfter,
       }
     },
   }),
@@ -83,28 +82,27 @@ export const createTransactionTools = (defineCustodyTool: DefineCustodyTool) => 
     id: 'listTransactions',
     description:
       'List the transactions (what Custody sent to a ledger) of a Custody domain, one page at a time, with their processing status in Custody and their status on the ledger. Pass a transactionOrderId to find the transaction a transaction order produced.',
+    domain: true,
+    paged: true,
     input: {
-      ...domainInput,
       transactionOrderId: z
         .string()
         .optional()
         .describe('Id of a transaction order (see listTransactionOrders), to list only the transactions it produced.'),
       accountId: z.string().optional().describe('Id of a Custody account, to list only its transactions.'),
-      ...pageInput,
     },
     run: async args => {
-      const domainId = await domainIdFor(args)
+      const { domainId } = args
       const { transactionOrderId, accountId } = args.input
       const page = await args.custody.transactions.transactions(
         { domainId },
         {
-          ...pageQuery(args.input),
+          ...args.pageQuery,
           ...(transactionOrderId === undefined ? {} : { 'orderReference.Id': transactionOrderId }),
           ...(accountId === undefined ? {} : { accountId }),
         },
       )
       return {
-        domainId,
         transactions: await Promise.all(
           page.items.map(async item => ({
             id: item.id,
@@ -119,7 +117,7 @@ export const createTransactionTools = (defineCustodyTool: DefineCustodyTool) => 
             ),
           })),
         ),
-        ...nextCursor(page),
+        nextCursor: page.nextStartingAfter,
       }
     },
   }),
@@ -128,12 +126,12 @@ export const createTransactionTools = (defineCustodyTool: DefineCustodyTool) => 
     id: 'getTransaction',
     description:
       'Get one transaction of a Custody domain in full: the order behind it, its processing status in Custody and its status on the ledger.',
+    domain: true,
     input: {
-      ...domainInput,
       transactionId: z.string().describe('Id of the transaction (see listTransactions or listTransfers).'),
     },
     run: async args => {
-      const domainId = await domainIdFor(args)
+      const { domainId } = args
       const transaction = await args.custody.transactions.transaction({
         domainId,
         transactionId: args.input.transactionId,
@@ -142,7 +140,7 @@ export const createTransactionTools = (defineCustodyTool: DefineCustodyTool) => 
         transaction.ledgerId,
         transaction.ledgerTransactionData?.ledgerTransactionId,
       )
-      return { domainId, transaction, ...explorerUrlField(explorerUrl) }
+      return { transaction, ...explorerUrlField(explorerUrl) }
     },
   }),
 })

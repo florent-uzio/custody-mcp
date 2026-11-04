@@ -7,12 +7,11 @@ import {
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import type { CustodyClient } from '../custody'
-import { domainIdFor, domainInput, type DefineCustodyTool } from './define'
+import type { DefineCustodyTool } from './define'
 import type { Environment } from '../environments'
 import { xrplOperation } from './xrpl-operation'
 
 const intentInput = {
-  ...domainInput,
   // Loose on purpose: the Dry run is what checks a payload, with Custody's own reasons.
   payload: z
     .looseObject({ type: z.string().startsWith('v0_') })
@@ -21,7 +20,6 @@ const intentInput = {
 }
 
 const xrplIntentInput = {
-  domainId: domainInput.domainId,
   account: z.string().describe('XRPL address of the Custody account the transaction is sent from.'),
   ledgerId: z.string().optional().describe('Id of the ledger, when the address is on several.'),
   operation: xrplOperation,
@@ -87,10 +85,10 @@ const proposeChecked = async (custody: CustodyClient, domainId: string, request:
 const withStatus = async (custody: CustodyClient, proposed: { domainId: string; intentId: string }) => {
   try {
     const intent = await custody.intents.get(proposed)
-    return { ...proposed, status: intent.data.state.status }
+    return { intentId: proposed.intentId, status: intent.data.state.status }
   } catch {
     return {
-      ...proposed,
+      intentId: proposed.intentId,
       note: 'Custody accepted the Propose but its status could not be read yet. Use getIntent or waitForIntent; do not propose it again.',
     }
   }
@@ -119,8 +117,8 @@ export const createProposeTools = (defineCustodyTool: DefineCustodyTool) => ({
     id: 'waitForIntent',
     description:
       'Wait a bounded time (default 30 seconds) for an Intent to finish: Executed, Failed, Rejected or Expired. If approvers have not acted yet, it says the Intent is still awaiting approval; that is not an error. Executed means Custody accepted the order, not that it settled on the ledger.',
+    domain: true,
     input: {
-      ...domainInput,
       intentId: z.string().describe('Id of the Intent (from proposeIntent or listIntents).'),
       timeoutSeconds: z
         .number()
@@ -131,7 +129,7 @@ export const createProposeTools = (defineCustodyTool: DefineCustodyTool) => ({
         .describe('How long to wait, in seconds (default 30, at most 55 to stay under client timeouts).'),
     },
     run: async args => {
-      const domainId = await domainIdFor(args)
+      const { domainId } = args
       const { intentId, timeoutSeconds } = args.input
       let result: WaitForExecutionResult
       try {
@@ -145,14 +143,12 @@ export const createProposeTools = (defineCustodyTool: DefineCustodyTool) => ({
           throw error
         }
         return {
-          domainId,
           intentId,
           done: false,
           message: `Intent ${intentId} is not visible in Custody yet after ${timeoutSeconds}s. Check the id, or call waitForIntent again later.`,
         }
       }
       return {
-        domainId,
         intentId,
         status: result.status,
         done: result.isTerminal,
@@ -166,11 +162,12 @@ export const createProposeTools = (defineCustodyTool: DefineCustodyTool) => ({
     id: 'dryRunIntent',
     description:
       'Run a Dry run of an Intent with a raw `v0_*` payload: Custody says whether it would be accepted and why not, without proposing anything.',
+    domain: true,
     input: intentInput,
     run: async args => {
-      const domainId = await domainIdFor(args)
+      const { domainId } = args
       const request = await buildRequest(args, domainId, rawPayload(args.input))
-      return { domainId, ...(await dryRun(args.custody, request)) }
+      return dryRun(args.custody, request)
     },
   }),
 
@@ -179,10 +176,10 @@ export const createProposeTools = (defineCustodyTool: DefineCustodyTool) => ({
     id: 'dryRunXrplIntent',
     description:
       'Run a Dry run of an XRPL transaction from a Custody account, with the same input as proposeXrplIntent: Custody says whether it would be accepted and why not, and estimates the fee, without proposing anything.',
+    domain: true,
     input: xrplIntentInput,
     run: async args => {
-      const { custody, input } = args
-      const domainId = await domainIdFor(args)
+      const { custody, input, domainId } = args
       const {
         success,
         errors = [],
@@ -191,7 +188,7 @@ export const createProposeTools = (defineCustodyTool: DefineCustodyTool) => ({
         { Account: input.account, operation: input.operation },
         { domainId, ledgerId: input.ledgerId, description: input.description },
       )
-      return { domainId, success, errors, estimate }
+      return { success, errors, estimate }
     },
   }),
 
@@ -200,10 +197,10 @@ export const createProposeTools = (defineCustodyTool: DefineCustodyTool) => ({
     description:
       'Propose an XRPL transaction from a Custody account. Runs a Dry run first and proposes nothing if it fails. Returns the Intent id, the payload id (the transaction order) and status at once, without waiting for approvals (see waitForIntent).',
     access: 'propose',
+    domain: true,
     input: xrplIntentInput,
     run: async args => {
-      const { custody, input } = args
-      const domainId = await domainIdFor(args)
+      const { custody, input, domainId } = args
       // custody.js builds the transaction order, dry-runs it and proposes that same request only if it passed.
       const { intentId, payloadId } = await custody.xrpl.proposeIntent(
         { Account: input.account, operation: input.operation },
@@ -218,9 +215,10 @@ export const createProposeTools = (defineCustodyTool: DefineCustodyTool) => ({
     description:
       'Propose an Intent with a raw `v0_*` payload, for Intent types with no dedicated tool. Runs a Dry run first and proposes nothing if it fails. Returns the Intent id and status at once, without waiting for approvals (see waitForIntent).',
     access: 'propose',
+    domain: true,
     input: intentInput,
     run: async args => {
-      const domainId = await domainIdFor(args)
+      const { domainId } = args
       return proposeChecked(args.custody, domainId, await buildRequest(args, domainId, rawPayload(args.input)))
     },
   }),
