@@ -139,6 +139,10 @@ const addEnv = async (args: string[], { env, ask, print, keychain, connect }: Cl
     print(`Usage: ${USAGE['add-env']}`)
     return 1
   }
+  if (values.store === 'env' && values.import !== undefined) {
+    print('--import cannot be used with --store env: --store env reads the private key from an env var instead.')
+    return 1
+  }
   const file = configPath(env)
   if ((await readConfig(file)).environments[name] !== undefined) {
     print(`Environment "${name}" already exists in ${file}. Run remove-env ${name} first to replace it.`)
