@@ -85,10 +85,10 @@ const proposeChecked = async (custody: CustodyClient, domainId: string, request:
 const withStatus = async (custody: CustodyClient, proposed: { domainId: string; intentId: string }) => {
   try {
     const intent = await custody.intents.get(proposed)
-    return { ...proposed, status: intent.data.state.status }
+    return { intentId: proposed.intentId, status: intent.data.state.status }
   } catch {
     return {
-      ...proposed,
+      intentId: proposed.intentId,
       note: 'Custody accepted the Propose but its status could not be read yet. Use getIntent or waitForIntent; do not propose it again.',
     }
   }

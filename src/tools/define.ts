@@ -54,7 +54,7 @@ const pageInput = {
 }
 
 /** The page a list tool asks Custody for. */
-export type PageQuery = { limit: number; startingAfter?: string }
+type PageQuery = { limit: number; startingAfter?: string }
 
 type RunArgs<Shape extends z.ZodRawShape> = {
   input: z.infer<z.ZodObject<Shape>>
