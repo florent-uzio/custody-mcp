@@ -22,6 +22,24 @@ export type CliOptions = {
 
 const KEYCHAIN_SERVICE = 'custody-mcp'
 
+const USAGE: Record<string, string> = {
+  'add-env':
+    'custody-mcp add-env <name> [--algorithm ed25519|secp256k1|secp256r1] [--import <pem-file>] [--store keychain|file|env]',
+  'list-envs': 'custody-mcp list-envs',
+  'remove-env': 'custody-mcp remove-env <name>',
+  'set-default': 'custody-mcp set-default <name>',
+}
+
+const isHelp = (arg: string) => arg === '--help' || arg === '-h'
+
+const usageOfEveryCommand = () =>
+  [
+    'Usage:',
+    ...Object.values(USAGE).map(line => `  ${line}`),
+    '',
+    'With no command, custody-mcp runs the MCP server.',
+  ].join('\n')
+
 /** The setup subcommands of the bin; returns the process exit code. */
 export const runCli = async (argv: string[], options: CliOptions): Promise<number> => {
   const [command, ...args] = argv
@@ -31,10 +49,18 @@ export const runCli = async (argv: string[], options: CliOptions): Promise<numbe
     'remove-env': removeEnv,
     'set-default': setDefault,
   }
+  if (isHelp(command)) {
+    options.print(usageOfEveryCommand())
+    return 0
+  }
   const run = commands[command]
   if (run === undefined) {
-    options.print(`Unknown command "${command}". Commands: ${Object.keys(commands).join(', ')}.`)
+    options.print(`Unknown command "${command}".\n\n${usageOfEveryCommand()}`)
     return 1
+  }
+  if (args.some(isHelp)) {
+    options.print(`Usage: ${USAGE[command]}`)
+    return 0
   }
   try {
     return await run(args, options)
@@ -63,6 +89,10 @@ const listEnvs = async (_args: string[], { env, print }: CliOptions) => {
 }
 
 const removeEnv = async ([name]: string[], { env, print }: CliOptions) => {
+  if (name === undefined) {
+    print(`Usage: ${USAGE['remove-env']}`)
+    return 1
+  }
   const file = configPath(env)
   let keyReference: string | undefined
   await updateConfig(file, config => {
@@ -79,6 +109,10 @@ const removeEnv = async ([name]: string[], { env, print }: CliOptions) => {
 }
 
 const setDefault = async ([name]: string[], { env, print }: CliOptions) => {
+  if (name === undefined) {
+    print(`Usage: ${USAGE['set-default']}`)
+    return 1
+  }
   const file = configPath(env)
   await updateConfig(file, config => {
     environmentIn(config, name, file)
@@ -102,9 +136,7 @@ const addEnv = async (args: string[], { env, ask, print, keychain, connect }: Cl
     },
   })
   if (name === undefined) {
-    print(
-      'Usage: custody-mcp add-env <name> [--algorithm ed25519|secp256k1|secp256r1] [--import <pem-file>] [--store keychain|file|env]',
-    )
+    print(`Usage: ${USAGE['add-env']}`)
     return 1
   }
   const file = configPath(env)
@@ -170,8 +202,8 @@ const updateConfig = async (file: string, change: (config: Config) => void) => {
   await writeFile(file, JSON.stringify(config, null, 2) + '\n')
 }
 
-const environmentIn = (config: Config, name: string | undefined, file: string) => {
-  const environment = name === undefined ? undefined : config.environments[name]
+const environmentIn = (config: Config, name: string, file: string) => {
+  const environment = config.environments[name]
   if (environment === undefined) {
     const known = Object.keys(config.environments).join(', ') || 'none'
     throw new Error(`Unknown Environment "${name}" in ${file}. Known Environments: ${known}.`)

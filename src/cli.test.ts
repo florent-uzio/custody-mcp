@@ -306,4 +306,39 @@ describe('setup CLI', () => {
       expect(result.readConfig().default).toBe('dev')
     })
   })
+
+  describe('--help', () => {
+    it('lists every command, and that no command runs the MCP server', async () => {
+      const result = await run(['--help'])
+
+      expect(result.exitCode).toBe(0)
+      for (const command of ['add-env', 'list-envs', 'remove-env', 'set-default']) {
+        expect(result.output).toContain(`custody-mcp ${command}`)
+      }
+      expect(result.output).toContain('With no command, custody-mcp runs the MCP server')
+    })
+
+    it("shows a command's usage without running it", async () => {
+      const result = await run(['add-env', 'dev', '-h'])
+
+      expect(result.exitCode).toBe(0)
+      expect(result.output).toContain('Usage: custody-mcp add-env <name> [--algorithm')
+      expect(result.questions).toEqual([])
+    })
+
+    it.each(['remove-env', 'set-default'])('shows the usage of %s when it gets no name', async command => {
+      const result = await run([command])
+
+      expect(result.exitCode).toBe(1)
+      expect(result.output).toBe(`Usage: custody-mcp ${command} <name>`)
+    })
+
+    it('follows an unknown command with the usage of every command', async () => {
+      const result = await run(['add-envs'])
+
+      expect(result.exitCode).toBe(1)
+      expect(result.output).toContain('Unknown command "add-envs"')
+      expect(result.output).toContain('custody-mcp set-default <name>')
+    })
+  })
 })
