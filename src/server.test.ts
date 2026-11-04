@@ -66,7 +66,15 @@ describe('custody MCP server', () => {
     it('lists each Environment in the config file', async () => {
       const CUSTODY_MCP_CONFIG = configFile({
         default: 'dev',
-        environments: { dev: { ...DEV, keyReference: 'env:DEV_KEY', access: 'propose', defaultDomainId: 'domain-1' } },
+        environments: {
+          dev: {
+            ...DEV,
+            keyReference: 'env:DEV_KEY',
+            access: 'propose',
+            defaultDomainId: 'domain-1',
+            xrplNodes: { 'xrpl-sandbox': 'wss://sandbox.example.test:6006' },
+          },
+        },
       })
 
       const output = await callTool({ env: { CUSTODY_MCP_CONFIG } }, 'listEnvironments')
@@ -79,6 +87,7 @@ describe('custody MCP server', () => {
             apiUrl: 'https://api.dev.test',
             access: 'propose',
             defaultDomainId: 'domain-1',
+            xrplNodes: { 'xrpl-sandbox': 'wss://sandbox.example.test:6006' },
             isDefault: true,
           },
         ],
