@@ -3,7 +3,7 @@ import { domainIdFor, domainInput, nextCursor, pageInput, pageQuery, type Define
 
 const accountInput = { accountId: z.string().describe('Id of the Custody account (see listAccounts).') }
 
-/** Read tools for the domains and accounts of an Environment's Custody user. */
+/** Read tools for the domains, users and accounts of an Environment's Custody user. */
 export const createAccountTools = (defineCustodyTool: DefineCustodyTool) => ({
   listDomains: defineCustodyTool({
     id: 'listDomains',
@@ -16,6 +16,29 @@ export const createAccountTools = (defineCustodyTool: DefineCustodyTool) => ({
           id: data.id,
           alias: data.alias,
           parentId: data.parentId,
+          lock: data.lock,
+        })),
+        ...nextCursor(page),
+      }
+    },
+  }),
+
+  listUsers: defineCustodyTool({
+    id: 'listUsers',
+    description:
+      "List the users of a Custody domain, one page at a time, with their id, alias, public key, roles and login ids. getMe only returns the Environment's own user.",
+    input: { ...domainInput, ...pageInput },
+    run: async args => {
+      const domainId = await domainIdFor(args)
+      const page = await args.custody.users.list({ domainId }, pageQuery(args.input))
+      return {
+        domainId,
+        users: page.items.map(({ data }) => ({
+          id: data.id,
+          alias: data.alias,
+          publicKey: data.publicKey,
+          roles: data.roles,
+          loginIds: data.loginIds,
           lock: data.lock,
         })),
         ...nextCursor(page),

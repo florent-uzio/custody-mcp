@@ -82,6 +82,67 @@ describe('read tools for domains and accounts', () => {
       expect(list).not.toHaveBeenCalled()
     })
   })
+  describe('listUsers', () => {
+    const usersPage = {
+      count: 1,
+      nextStartingAfter: 'user-1',
+      items: [
+        signed({
+          id: 'user-1',
+          domainId: 'domain-1',
+          alias: 'alice',
+          publicKey: 'PUBLIC KEY',
+          roles: ['admin'],
+          loginIds: [{ id: 'alice@example.com', providerId: 'sso' }],
+          lock: 'Unlocked',
+          metadata,
+        }),
+      ],
+    }
+
+    it('lists the users of the Default domain, compactly, with the next cursor', async () => {
+      const list = vi.fn(async () => usersPage)
+
+      const output = await callTool(options(fakeCustody({ users: { list } })), 'listUsers')
+
+      expect(output).toEqual({
+        environment: 'dev',
+        domainId: 'domain-1',
+        users: [
+          {
+            id: 'user-1',
+            alias: 'alice',
+            publicKey: 'PUBLIC KEY',
+            roles: ['admin'],
+            loginIds: [{ id: 'alice@example.com', providerId: 'sso' }],
+            lock: 'Unlocked',
+          },
+        ],
+        nextCursor: 'user-1',
+      })
+      expect(list).toHaveBeenCalledWith({ domainId: 'domain-1' }, { limit: 20, startingAfter: undefined })
+    })
+
+    it('lists the users of another domain when given a domainId', async () => {
+      const list = vi.fn(async () => usersPage)
+
+      const output = await callTool(options(fakeCustody({ users: { list } })), 'listUsers', { domainId: 'domain-9' })
+
+      expect(output).toMatchObject({ domainId: 'domain-9' })
+      expect(list).toHaveBeenCalledWith({ domainId: 'domain-9' }, expect.anything())
+    })
+
+    it("passes on Custody's reason for refusing to list users", async () => {
+      const list = async () => {
+        throw new CustodyError({ reason: 'Missing permission to list users' }, 403)
+      }
+
+      const output = await callTool(options(fakeCustody({ users: { list } })), 'listUsers')
+
+      expect(output).toEqual({ error: 'Missing permission to list users' })
+    })
+  })
+
   describe('listAccounts', () => {
     const accountsPage = {
       count: 1,
