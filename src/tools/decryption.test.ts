@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { CustodyClient } from './custody'
-import { callTool, configFile, DEV, fakeCustody } from './testing'
+import type { CustodyClient } from '../custody'
+import { callTool, configFile, DEV, fakeCustody } from '../testing'
 
 const options = (custody: CustodyClient) => ({
   env: {

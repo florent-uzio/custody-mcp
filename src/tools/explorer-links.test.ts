@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { CustodyClient } from './custody'
-import { createCustodyMcpServer } from './server'
-import { callTool, configFile, DEV, fakeCustody } from './testing'
+import type { CustodyClient } from '../custody'
+import { createCustodyMcpServer } from '../server'
+import { callTool, configFile, DEV, fakeCustody } from '../testing'
 
 const HASH = 'ABC123'
 const ADDRESS = 'rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY'

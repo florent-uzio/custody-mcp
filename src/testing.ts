@@ -37,6 +37,25 @@ export const DEV = {
 /** Stands in for custody.js: only the namespaces a test needs, with canned answers. */
 export const fakeCustody = (namespaces: object) => namespaces as CustodyClient
 
+/** What Custody signs and returns around every domain and account record. */
+export const signed = <Data>(data: Data) => ({ data, signature: 'SIG', signingKey: 'SIGNING KEY' })
+
+export const metadata = { createdAt: '2026-01-01T00:00:00Z', createdBy: { id: 'user-1' }, revision: 1 }
+
+// One Environment with a Default domain; its key comes from an env var.
+export const devOptions = (
+  custody: CustodyClient,
+  { defaultDomainId }: { defaultDomainId?: string } = { defaultDomainId: 'domain-1' },
+) => ({
+  env: {
+    DEV_KEY: 'DEV KEY',
+    CUSTODY_MCP_CONFIG: configFile({
+      environments: { dev: { ...DEV, keyReference: 'env:DEV_KEY', defaultDomainId } },
+    }),
+  },
+  connect: () => custody,
+})
+
 export const callTool = async (options: ServerOptions, toolId: string, args: object = {}) => {
   try {
     const result = await createCustodyMcpServer(options).executeTool(toolId, args)
