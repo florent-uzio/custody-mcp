@@ -4,6 +4,7 @@ import { z } from 'zod'
 import packageJson from '../package.json'
 import { connectCustody, type ConnectCustody } from './custody'
 import { createAccountTools } from './account-tools'
+import { createDecryptionTools } from './decryption-tools'
 import { createApproveTools } from './approve-tools'
 import { createCustodyToolFactory } from './custody-tool'
 import { createIntentTools } from './intent-tools'
@@ -81,6 +82,7 @@ export const createCustodyMcpServer = (options: ServerOptions) => {
       listEnvironments,
       getMe,
       ...createAccountTools(defineCustodyTool),
+      ...createDecryptionTools(defineCustodyTool),
       ...createIntentTools(defineCustodyTool),
       ...createProposeTools(defineCustodyTool),
       ...createApproveTools(defineCustodyTool),

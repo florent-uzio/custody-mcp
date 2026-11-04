@@ -19,12 +19,14 @@ describe('custody MCP server', () => {
 
     expect(tools.map(tool => tool.name).sort()).toEqual([
       'approveIntent',
+      'decryptConfidentialInboxBalance',
       'dryRunIntent',
       'dryRunXrplIntent',
       'findAccountByAddress',
       'getAccount',
       'getAccountBalances',
       'getBackendVersion',
+      'getConfidentialInboxDecryption',
       'getIntent',
       'getMcpVersion',
       'getMe',
