@@ -1,6 +1,6 @@
 {
   "name": "@florent-uzio/custody-mcp",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "MCP server for Ripple Custody, built on custody.js",
   "license": "ISC",
   "author": "Florent Uzio",
