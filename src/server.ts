@@ -44,6 +44,7 @@ export const createCustodyMcpServer = (options: ServerOptions) => {
           apiUrl: environment.apiUrl,
           access: environment.access,
           defaultDomainId: environment.defaultDomainId,
+          xrplNodes: environment.xrplNodes,
           isDefault: environment.name === defaultName,
         })),
       }

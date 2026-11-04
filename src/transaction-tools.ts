@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { explorerUrlField } from './explorer-links'
 import { domainIdFor, domainInput, nextCursor, pageInput, pageQuery, type DefineCustodyTool } from './custody-tool'
 
 /** Read tools for what Custody moved and sent to the ledgers: transfers, transaction orders, transactions. */
@@ -104,15 +105,20 @@ export const createTransactionTools = (defineCustodyTool: DefineCustodyTool) => 
       )
       return {
         domainId,
-        transactions: page.items.map(item => ({
-          id: item.id,
-          ledgerId: item.ledgerId,
-          transactionOrderId: item.orderReference?.id,
-          processingStatus: item.processing?.status,
-          ledgerStatus: item.ledgerTransactionData?.ledgerStatus,
-          ledgerTransactionId: item.ledgerTransactionData?.ledgerTransactionId,
-          registeredAt: item.registeredAt,
-        })),
+        transactions: await Promise.all(
+          page.items.map(async item => ({
+            id: item.id,
+            ledgerId: item.ledgerId,
+            transactionOrderId: item.orderReference?.id,
+            processingStatus: item.processing?.status,
+            ledgerStatus: item.ledgerTransactionData?.ledgerStatus,
+            ledgerTransactionId: item.ledgerTransactionData?.ledgerTransactionId,
+            registeredAt: item.registeredAt,
+            ...explorerUrlField(
+              await args.explorer.transaction(item.ledgerId, item.ledgerTransactionData?.ledgerTransactionId),
+            ),
+          })),
+        ),
         ...nextCursor(page),
       }
     },
@@ -132,7 +138,11 @@ export const createTransactionTools = (defineCustodyTool: DefineCustodyTool) => 
         domainId,
         transactionId: args.input.transactionId,
       })
-      return { domainId, transaction }
+      const explorerUrl = await args.explorer.transaction(
+        transaction.ledgerId,
+        transaction.ledgerTransactionData?.ledgerTransactionId,
+      )
+      return { domainId, transaction, ...explorerUrlField(explorerUrl) }
     },
   }),
 })

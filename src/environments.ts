@@ -16,6 +16,8 @@ export type Environment = {
   keyReference: string
   access: AccessLevel
   defaultDomainId?: string
+  /** Node URL (`wss://`) per Custody ledgerId, for XRPL ledgers on custom networks (ADR-0003). */
+  xrplNodes?: Record<string, string>
 }
 
 export type Environments = {
@@ -38,6 +40,7 @@ const configSchema = z.object({
         keyReference: z.string(),
         access: z.enum(ACCESS_LEVELS).default('read'),
         defaultDomainId: z.string().optional(),
+        xrplNodes: z.record(z.string(), z.url({ protocol: /^wss?$/ })).optional(),
       }),
     )
     .default({}),
