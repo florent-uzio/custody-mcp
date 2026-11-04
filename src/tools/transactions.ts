@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { explorerUrlField } from './explorer-links'
-import { domainIdFor, domainInput, nextCursor, pageInput, pageQuery, type DefineCustodyTool } from './custody-tool'
+import { domainIdFor, domainInput, nextCursor, pageInput, pageQuery, type DefineCustodyTool } from './define'
 
 /** Read tools for what Custody moved and sent to the ledgers: transfers, transaction orders, transactions. */
 export const createTransactionTools = (defineCustodyTool: DefineCustodyTool) => ({

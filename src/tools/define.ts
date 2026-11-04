@@ -1,9 +1,9 @@
 import { createTool, type ToolExecutionContext } from '@mastra/core/tools'
 import { z } from 'zod'
-import type { ConnectCustody, CustodyClient } from './custody'
+import type { ConnectCustody, CustodyClient } from '../custody'
 import { createExplorerLinks, type ExplorerLinks } from './explorer-links'
-import { ACCESS_LEVELS, loadEnvironments, type AccessLevel, type Environment } from './environments'
-import { resolveKeyReference } from './key-references'
+import { ACCESS_LEVELS, loadEnvironments, type AccessLevel, type Environment } from '../environments'
+import { resolveKeyReference } from '../key-references'
 
 const environmentInput = {
   environment: z

@@ -6,9 +6,9 @@ import {
 } from '@florent-uzio/custody'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
-import type { CustodyClient } from './custody'
-import { domainIdFor, domainInput, type DefineCustodyTool } from './custody-tool'
-import type { Environment } from './environments'
+import type { CustodyClient } from '../custody'
+import { domainIdFor, domainInput, type DefineCustodyTool } from './define'
+import type { Environment } from '../environments'
 import { xrplOperation } from './xrpl-operation'
 
 const intentInput = {

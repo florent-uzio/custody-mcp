@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { domainIdFor, domainInput, type DefineCustodyTool } from './custody-tool'
+import { domainIdFor, domainInput, type DefineCustodyTool } from './define'
 
 // Both tools use Custody's internal API (/internal/v1/cmpt-cb-in), which a public API will replace.
 const INTERNAL_API_NOTE =
