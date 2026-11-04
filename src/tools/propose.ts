@@ -7,6 +7,7 @@ import {
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import type { CustodyClient } from '../custody'
+import { authorIn } from './author'
 import type { DefineCustodyTool } from './define'
 import type { Environment } from '../environments'
 import { xrplOperation } from './xrpl-operation'
@@ -46,14 +47,9 @@ const buildRequest = async (
   domainId: string,
   payload: IntentPayload,
 ) => {
-  const { domains } = await custody.users.me()
-  const userId = domains.find(domain => domain.id === domainId)?.userReference.id
-  if (userId === undefined) {
-    throw new Error(`The user of Environment "${environment.name}" does not belong to domain ${domainId}.`)
-  }
   const { description } = input
   const request: Core_IntentDryRunRequest = {
-    author: { domainId, id: userId },
+    author: await authorIn(custody, environment, domainId),
     targetDomainId: domainId,
     id: randomUUID(),
     expiryAt: new Date(Date.now() + INTENT_LIFETIME_MS).toISOString(),
@@ -73,8 +69,10 @@ const dryRun = async (custody: CustodyClient, request: Core_IntentDryRunRequest)
 const proposeChecked = async (custody: CustodyClient, domainId: string, request: Core_IntentDryRunRequest) => {
   const result = await dryRun(custody, request)
   if (!result.success) {
-    const reasons = result.errors.length > 0 ? result.errors.join('; ') : 'Custody gave no reason'
-    throw new Error(`The Dry run failed, so nothing was proposed: ${reasons}`)
+    // Worded as custody.js words a failed XRPL Dry run, so both Propose tools fail alike. With no reasons,
+    // custody.js would leave the message blank after the colon; "unknown error" says so instead.
+    const reasons = result.errors.length > 0 ? result.errors.join(', ') : 'unknown error'
+    throw new Error(`Dry run failed, intent not proposed: ${reasons}`)
   }
   // custody.js types the proposed payload apart from the dry-run one; both are the raw payload given.
   await custody.intents.propose({ request: { ...request, type: 'Propose' } as Core_ProposeIntentBody['request'] })

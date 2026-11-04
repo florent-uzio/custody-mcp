@@ -122,6 +122,19 @@ describe('deciding on Intents with confirmation', () => {
       expect(get).not.toHaveBeenCalled()
       expect(approve).not.toHaveBeenCalled()
     })
+
+    it('refuses in a domain the Environment user does not belong to, without approving', async () => {
+      const approve = vi.fn()
+
+      const output = await callTool(options({ users: { me }, intents: { get, approve } }), 'approveIntent', {
+        environment: 'dev',
+        domainId: 'domain-9',
+        intentId: 'intent-1',
+      })
+
+      expect(output).toEqual({ error: 'The user of Environment "dev" does not belong to domain domain-9.' })
+      expect(approve).not.toHaveBeenCalled()
+    })
   })
 
   describe('rejectIntent', () => {
