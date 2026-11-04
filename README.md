@@ -1,6 +1,12 @@
 # custody-mcp
 
-An MCP server that lets you read from and act on Ripple Custody instances, as your own Custody user, from an AI client such as Claude Code or Claude Desktop.
+An MCP server that lets you read from and act on Ripple Custody instances, as your own Custody user, from an AI client such as Claude Code.
+
+> **For test and demo instances.** The server can Propose, Approve and Reject Intents that move real assets on the instance it points at. Use it with dev boxes, demo sandboxes and staging, not with production custody.
+
+## Supported clients
+
+The server speaks only the 2026-07-28 MCP protocol (the one `@mastra/mcp` 2.x serves over stdio). Claude Code works. A client that only speaks a 2025 protocol revision fails at `initialize` with `Unsupported protocol version`.
 
 ## Use it from your MCP client
 
@@ -94,9 +100,46 @@ Environments are saved in `~/.config/custody-mcp/config.json`. Set `CUSTODY_MCP_
 
 If `AUTH_URL`, `API_URL`, `PUBLIC_KEY` and `PRIVATE_KEY` are set (as in custody-mpt-demo), they are picked up as an extra Environment named `env`. Its Access level is `read` unless you set `CUSTODY_ACCESS` to `propose` or `approve`.
 
-## Guardrails
+## Access levels and confirmations
+
+Each Environment has an **Access level**, chosen in `add-env` (or with `CUSTODY_ACCESS` for the `env` Environment). It caps what the AI client can do through that Environment:
+
+| Access level     | Allows                                                                                   |
+| ---------------- | ---------------------------------------------------------------------------------------- |
+| `read` (default) | Reading: users, domains, accounts, balances, Intents, transfers, transactions, Dry runs. |
+| `propose`        | `read`, plus Proposing Intents (`proposeXrplIntent`, `proposeIntent`).                   |
+| `approve`        | `propose`, plus Approving and Rejecting Intents (`approveIntent`, `rejectIntent`).       |
+
+The Access level only limits this server. What your Custody user may do is still decided by Custody's own roles and policies.
+
+### Guardrails
 
 - Every propose, approve or reject call must name its Environment explicitly: a write never falls back to the default.
 - A tool above an Environment's Access level is refused before anything is sent to Custody.
 - Every Propose runs a Dry run first and proposes nothing if it fails.
-- Every Approve or Reject asks you for confirmation in your client (see [ADR-0001](docs/adr/0001-approve-through-mcp.md)).
+- Every Approve or Reject asks you for confirmation in your client (see [ADR-0001](docs/adr/0001-approve-through-mcp.md)): the client shows a summary of the Intent, and nothing reaches Custody unless you accept. If your client cannot show a confirmation, the assistant is instructed to summarise the Intent and wait for your explicit "yes", and the result says that no in-client confirmation was shown.
+- Proposing returns at once. `waitForIntent` follows an Intent for a bounded time; `Executed` means Custody accepted the order, not that it settled on the ledger.
+
+## Development
+
+```sh
+npm ci
+npm test          # unit tests, plus a check that the packed tarball installs and starts
+npm run mcp       # the server from source, over stdio
+```
+
+### Smoke test against a real instance
+
+`scripts/smoke.ts` is a manual end-to-end check, never run in CI: it proposes and approves a real (tiny) XRP Payment. It starts the server from source over stdio, with your own config file, and prints the backend version, runs reads, a Dry run, a Propose, `waitForIntent` and an Approve.
+
+```sh
+npx tsx scripts/smoke.ts --env devbox --account <r… sender> --destination <r… receiver> [--amount <drops>] [--approver devbox-2]
+```
+
+- `--env` needs Access level `approve`. The script first approves as the proposer and records whether Custody lets that approval count (self-approval).
+- If it does not, pass `--approver`: a second Environment, for another Custody user with Access level `approve`, which then approves.
+- Each Approve asks you to confirm in the terminal, as your client would.
+
+### Releasing
+
+Releases use [Changesets](https://github.com/changesets/changesets). Add a changeset with your change (`npx changeset`). On `main`, the release workflow opens a "Version Packages" PR; merging it publishes to npm with npm trusted publishing (no npm token in the repo). `npm publish` first runs the `prepublishOnly` guard: formatting, types and tests, including installing the packed tarball and starting it.
