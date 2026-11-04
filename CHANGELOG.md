@@ -1,5 +1,15 @@
 # @florent-uzio/custody-mcp
 
+## 0.3.0
+
+### Minor Changes
+
+- 7025b39: Add `decryptConfidentialInboxBalance` and `getConfidentialInboxDecryption`, which decrypt the inbox (CB_IN) balance of a confidential MPT for a Custody account. They use a Custody internal API that a public API is expected to replace.
+
+### Patch Changes
+
+- 1d84473: `proposeIntent` now words a failed Dry run the way `proposeXrplIntent` does (`Dry run failed, intent not proposed: …`), so both Propose tools fail alike.
+
 ## 0.2.0
 
 ### Minor Changes
