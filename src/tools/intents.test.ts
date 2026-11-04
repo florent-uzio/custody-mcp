@@ -1,6 +1,6 @@
 import { CustodyError } from '@florent-uzio/custody'
 import { describe, expect, it, vi } from 'vitest'
-import { callTool, devOptions as options, fakeCustody, signed } from '../testing'
+import { callTool, devServerOptions, fakeCustody, signed } from '../testing'
 
 describe('read tools for Intents', () => {
   /** An Intent as Custody returns it, with the parts a summary does not show. */
@@ -27,7 +27,7 @@ describe('read tools for Intents', () => {
       }))
       const remainingUsers = vi.fn(async () => [{ domainId: 'domain-1', users: ['user-bob', 'user-carol'] }])
 
-      const output = await callTool(options(fakeCustody({ intents: { list, remainingUsers } })), 'listIntents')
+      const output = await callTool(devServerOptions(fakeCustody({ intents: { list, remainingUsers } })), 'listIntents')
 
       expect(output).toEqual({
         environment: 'dev',
@@ -67,7 +67,7 @@ describe('read tools for Intents', () => {
         throw new CustodyError({ reason: 'Intent is not opened' }, 400)
       }
 
-      const output = await callTool(options(fakeCustody({ intents: { list, remainingUsers } })), 'listIntents')
+      const output = await callTool(devServerOptions(fakeCustody({ intents: { list, remainingUsers } })), 'listIntents')
 
       expect(output).toMatchObject({ intents: [{ id: 'intent-1', missingApprovals: [] }] })
     })
@@ -78,7 +78,7 @@ describe('read tools for Intents', () => {
       const get = vi.fn(async () => intent('intent-1', 'Open'))
       const remainingUsers = async () => [{ domainId: 'domain-1', users: ['user-bob'] }]
 
-      const output = await callTool(options(fakeCustody({ intents: { get, remainingUsers } })), 'getIntent', {
+      const output = await callTool(devServerOptions(fakeCustody({ intents: { get, remainingUsers } })), 'getIntent', {
         intentId: 'intent-1',
         domainId: 'domain-9',
       })
@@ -106,7 +106,9 @@ describe('read tools for Intents', () => {
       const error = { code: 'InsufficientBalance', message: 'Not enough XRP' }
       const get = async () => ({ ...failed, data: { ...failed.data, state: { ...failed.data.state, error } } })
 
-      const output = await callTool(options(fakeCustody({ intents: { get } })), 'getIntent', { intentId: 'intent-1' })
+      const output = await callTool(devServerOptions(fakeCustody({ intents: { get } })), 'getIntent', {
+        intentId: 'intent-1',
+      })
 
       expect(output).toMatchObject({ intent: { status: 'Failed', missingApprovals: [], error } })
     })
@@ -137,7 +139,7 @@ describe('read tools for Intents', () => {
       }))
 
       const output = await callTool(
-        options(fakeCustody({ intents: { list, remainingUsers }, users: { me } })),
+        devServerOptions(fakeCustody({ intents: { list, remainingUsers }, users: { me } })),
         'listPendingApprovals',
         { limit: 4, cursor: 'domain-1_intent-0' },
       )

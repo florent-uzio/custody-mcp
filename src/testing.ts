@@ -40,10 +40,10 @@ export const fakeCustody = (namespaces: object) => namespaces as CustodyClient
 /** What Custody signs and returns around every domain and account record. */
 export const signed = <Data>(data: Data) => ({ data, signature: 'SIG', signingKey: 'SIGNING KEY' })
 
-export const metadata = { createdAt: '2026-01-01T00:00:00Z', createdBy: { id: 'user-1' }, revision: 1 }
+export const recordMetadata = { createdAt: '2026-01-01T00:00:00Z', createdBy: { id: 'user-1' }, revision: 1 }
 
 // One Environment with a Default domain; its key comes from an env var.
-export const devOptions = (
+export const devServerOptions = (
   custody: CustodyClient,
   { defaultDomainId }: { defaultDomainId?: string } = { defaultDomainId: 'domain-1' },
 ) => ({

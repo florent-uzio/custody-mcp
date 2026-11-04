@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { callTool, devOptions as options, fakeCustody, metadata, signed } from '../testing'
+import { callTool, devServerOptions, fakeCustody, recordMetadata, signed } from '../testing'
 
 describe('read tools for reference data', () => {
   describe('listTickers', () => {
@@ -13,7 +13,7 @@ describe('read tools for reference data', () => {
         symbol: 'XRP',
         ledgerDetails: { type: 'XRPL', properties: { type: 'Native' } },
         lock: 'Unlocked',
-        metadata,
+        metadata: recordMetadata,
       }
       // Custody repeats the ticker's fields at the top level, deprecated, around the signed data.
       const list = vi.fn(async () => ({
@@ -22,7 +22,7 @@ describe('read tools for reference data', () => {
         items: [{ id: 'ticker-xrp', name: 'XRP (deprecated copy)', data, signature: 'SIG' }],
       }))
 
-      const output = await callTool(options(fakeCustody({ tickers: { list } })), 'listTickers', {
+      const output = await callTool(devServerOptions(fakeCustody({ tickers: { list } })), 'listTickers', {
         limit: 50,
         cursor: 'ticker-btc',
       })
@@ -55,12 +55,12 @@ describe('read tools for reference data', () => {
             id: 'xrpl-testnet',
             alias: 'XRPL Testnet',
             parameters: { type: 'XRPL', nativeTickerSymbol: 'XRP', nativeTickerName: 'XRP', networkId: 1 },
-            metadata,
+            metadata: recordMetadata,
           }),
         ],
       }))
 
-      const output = await callTool(options(fakeCustody({ ledgers: { list } })), 'listLedgers')
+      const output = await callTool(devServerOptions(fakeCustody({ ledgers: { list } })), 'listLedgers')
 
       expect(output).toEqual({
         environment: 'dev',

@@ -17,8 +17,9 @@ describe('the tool registry', () => {
     expect(() => mergeTools([{ getMe }, { listUsers, getMe }])).toThrow('Duplicate tool id: getMe')
   })
 
+  // Outside `code spans`, the only camelCase words in the instructions are tool names.
   it('knows every tool the instructions name', () => {
-    const named = CUSTODY_INSTRUCTIONS.match(/\b(get|list|find|propose|dryRun|wait|approve|reject|decrypt)[A-Z]\w*/g)
+    const named = CUSTODY_INSTRUCTIONS.replace(/`[^`]*`/g, '').match(/\b[a-z]+[A-Z]\w*/g)
     expect(named).not.toBeNull()
     for (const name of new Set(named)) {
       expect(Object.keys(tools), `instructions name ${name}`).toContain(name)

@@ -1,6 +1,6 @@
 import { CustodyError, UnsupportedInVersionError } from '@florent-uzio/custody'
 import { describe, expect, it, vi } from 'vitest'
-import { callTool, devOptions as options, fakeCustody, metadata, signed } from '../testing'
+import { callTool, devServerOptions, fakeCustody, recordMetadata, signed } from '../testing'
 
 describe('read tools for domains and accounts', () => {
   describe('listDomains', () => {
@@ -14,7 +14,7 @@ describe('read tools for domains and accounts', () => {
           alias: 'Treasury',
           lock: 'Unlocked',
           permissions: { readAccess: {} },
-          metadata,
+          metadata: recordMetadata,
         }),
       ],
     }
@@ -22,7 +22,7 @@ describe('read tools for domains and accounts', () => {
     it('returns a compact summary of each domain and the cursor of the next page', async () => {
       const list = vi.fn(async () => domainsPage)
 
-      const output = await callTool(options(fakeCustody({ domains: { list } })), 'listDomains')
+      const output = await callTool(devServerOptions(fakeCustody({ domains: { list } })), 'listDomains')
 
       expect(output).toEqual({
         environment: 'dev',
@@ -35,7 +35,7 @@ describe('read tools for domains and accounts', () => {
     it('fetches the page after a cursor, with the limit asked for', async () => {
       const list = vi.fn(async () => ({ ...domainsPage, nextStartingAfter: undefined }))
 
-      const output = await callTool(options(fakeCustody({ domains: { list } })), 'listDomains', {
+      const output = await callTool(devServerOptions(fakeCustody({ domains: { list } })), 'listDomains', {
         limit: 5,
         cursor: 'domain-2',
       })
@@ -47,7 +47,7 @@ describe('read tools for domains and accounts', () => {
     it('refuses a page of more than 100 items without calling Custody', async () => {
       const list = vi.fn(async () => domainsPage)
 
-      const output = await callTool(options(fakeCustody({ domains: { list } })), 'listDomains', { limit: 101 })
+      const output = await callTool(devServerOptions(fakeCustody({ domains: { list } })), 'listDomains', { limit: 101 })
 
       expect(output).toEqual({ error: expect.stringContaining('limit') })
       expect(list).not.toHaveBeenCalled()
@@ -66,7 +66,7 @@ describe('read tools for domains and accounts', () => {
           roles: ['admin'],
           loginIds: [{ id: 'alice@example.com', providerId: 'sso' }],
           lock: 'Unlocked',
-          metadata,
+          metadata: recordMetadata,
         }),
       ],
     }
@@ -74,7 +74,7 @@ describe('read tools for domains and accounts', () => {
     it('lists the users of the Default domain, compactly, with the next cursor', async () => {
       const list = vi.fn(async () => usersPage)
 
-      const output = await callTool(options(fakeCustody({ users: { list } })), 'listUsers')
+      const output = await callTool(devServerOptions(fakeCustody({ users: { list } })), 'listUsers')
 
       expect(output).toEqual({
         environment: 'dev',
@@ -97,7 +97,9 @@ describe('read tools for domains and accounts', () => {
     it('lists the users of another domain when given a domainId', async () => {
       const list = vi.fn(async () => usersPage)
 
-      const output = await callTool(options(fakeCustody({ users: { list } })), 'listUsers', { domainId: 'domain-9' })
+      const output = await callTool(devServerOptions(fakeCustody({ users: { list } })), 'listUsers', {
+        domainId: 'domain-9',
+      })
 
       expect(output).toMatchObject({ domainId: 'domain-9' })
       expect(list).toHaveBeenCalledWith({ domainId: 'domain-9' }, expect.anything())
@@ -108,7 +110,7 @@ describe('read tools for domains and accounts', () => {
         throw new CustodyError({ reason: 'Missing permission to list users' }, 403)
       }
 
-      const output = await callTool(options(fakeCustody({ users: { list } })), 'listUsers')
+      const output = await callTool(devServerOptions(fakeCustody({ users: { list } })), 'listUsers')
 
       expect(output).toEqual({ error: 'Missing permission to list users' })
     })
@@ -126,7 +128,7 @@ describe('read tools for domains and accounts', () => {
           ledgerIds: ['xrpl-testnet'],
           providerDetails: { vaultId: 'vault-1', keyStrategy: 'VaultHard' },
           lock: 'Unlocked',
-          metadata,
+          metadata: recordMetadata,
         }),
       ],
     }
@@ -134,7 +136,7 @@ describe('read tools for domains and accounts', () => {
     it('lists the accounts of the Default domain, compactly, with the next cursor', async () => {
       const list = vi.fn(async () => accountsPage)
 
-      const output = await callTool(options(fakeCustody({ accounts: { list } })), 'listAccounts')
+      const output = await callTool(devServerOptions(fakeCustody({ accounts: { list } })), 'listAccounts')
 
       expect(output).toEqual({
         environment: 'dev',
@@ -148,7 +150,7 @@ describe('read tools for domains and accounts', () => {
     it('lists the accounts of another domain when given a domainId', async () => {
       const list = vi.fn(async () => accountsPage)
 
-      const output = await callTool(options(fakeCustody({ accounts: { list } })), 'listAccounts', {
+      const output = await callTool(devServerOptions(fakeCustody({ accounts: { list } })), 'listAccounts', {
         domainId: 'domain-9',
       })
 
@@ -160,7 +162,10 @@ describe('read tools for domains and accounts', () => {
       const list = vi.fn(async () => accountsPage)
       const me = async () => ({ domains: [{ id: 'domain-7', alias: 'Demo' }] })
 
-      const output = await callTool(options(fakeCustody({ accounts: { list }, users: { me } }), {}), 'listAccounts')
+      const output = await callTool(
+        devServerOptions(fakeCustody({ accounts: { list }, users: { me } }), {}),
+        'listAccounts',
+      )
 
       expect(output).toMatchObject({ domainId: 'domain-7' })
     })
@@ -173,7 +178,7 @@ describe('read tools for domains and accounts', () => {
         ],
       })
 
-      const output = await callTool(options(fakeCustody({ users: { me } }), {}), 'listAccounts')
+      const output = await callTool(devServerOptions(fakeCustody({ users: { me } }), {}), 'listAccounts')
 
       expect(output).toEqual({
         error:
@@ -189,14 +194,14 @@ describe('read tools for domains and accounts', () => {
       ledgerIds: ['xrpl-testnet'],
       providerDetails: { vaultId: 'vault-1', keyStrategy: 'VaultHard' },
       lock: 'Unlocked',
-      metadata,
+      metadata: recordMetadata,
     }
     const additionalDetails = { processing: { status: 'Ready' }, ledgers: [] }
 
     it('returns the account and its processing details, without the signature envelope', async () => {
       const get = vi.fn(async () => ({ ...signed(account), additionalDetails }))
 
-      const output = await callTool(options(fakeCustody({ accounts: { get } })), 'getAccount', {
+      const output = await callTool(devServerOptions(fakeCustody({ accounts: { get } })), 'getAccount', {
         accountId: 'account-1',
       })
 
@@ -224,11 +229,15 @@ describe('read tools for domains and accounts', () => {
         ],
       }))
 
-      const output = await callTool(options(fakeCustody({ accounts: { addresses } })), 'listAccountAddresses', {
-        accountId: 'account-1',
-        limit: 5,
-        cursor: 'address-0',
-      })
+      const output = await callTool(
+        devServerOptions(fakeCustody({ accounts: { addresses } })),
+        'listAccountAddresses',
+        {
+          accountId: 'account-1',
+          limit: 5,
+          cursor: 'address-0',
+        },
+      )
 
       expect(output).toEqual({
         environment: 'dev',
@@ -269,10 +278,14 @@ describe('read tools for domains and accounts', () => {
         ],
       }))
 
-      const output = await callTool(options(fakeCustody({ accounts: { getAccountBalances } })), 'getAccountBalances', {
-        accountId: 'account-1',
-        domainId: 'domain-9',
-      })
+      const output = await callTool(
+        devServerOptions(fakeCustody({ accounts: { getAccountBalances } })),
+        'getAccountBalances',
+        {
+          accountId: 'account-1',
+          domainId: 'domain-9',
+        },
+      )
 
       expect(output).toEqual({
         environment: 'dev',
@@ -311,9 +324,13 @@ describe('read tools for domains and accounts', () => {
         type: 'AccountAddressReference',
       }))
 
-      const output = await callTool(options(fakeCustody({ accounts: { findByAddress } })), 'findAccountByAddress', {
-        address: ADDRESS,
-      })
+      const output = await callTool(
+        devServerOptions(fakeCustody({ accounts: { findByAddress } })),
+        'findAccountByAddress',
+        {
+          address: ADDRESS,
+        },
+      )
 
       expect(output).toEqual({
         environment: 'dev',
@@ -325,7 +342,7 @@ describe('read tools for domains and accounts', () => {
     it('narrows the search to a ledger and a domain when given them', async () => {
       const findByAddress = vi.fn(async () => undefined)
 
-      await callTool(options(fakeCustody({ accounts: { findByAddress } })), 'findAccountByAddress', {
+      await callTool(devServerOptions(fakeCustody({ accounts: { findByAddress } })), 'findAccountByAddress', {
         address: ADDRESS,
         ledgerId: 'xrpl-testnet',
         domainId: 'domain-3',
@@ -337,9 +354,13 @@ describe('read tools for domains and accounts', () => {
     it('says when no Custody account has the address', async () => {
       const findByAddress = async () => undefined
 
-      const output = await callTool(options(fakeCustody({ accounts: { findByAddress } })), 'findAccountByAddress', {
-        address: ADDRESS,
-      })
+      const output = await callTool(
+        devServerOptions(fakeCustody({ accounts: { findByAddress } })),
+        'findAccountByAddress',
+        {
+          address: ADDRESS,
+        },
+      )
 
       expect(output).toEqual({ environment: 'dev', account: null })
     })
@@ -355,9 +376,13 @@ describe('read tools for domains and accounts', () => {
         })
       }
 
-      const output = await callTool(options(fakeCustody({ accounts: { getAccountBalances } })), 'getAccountBalances', {
-        accountId: 'account-1',
-      })
+      const output = await callTool(
+        devServerOptions(fakeCustody({ accounts: { getAccountBalances } })),
+        'getAccountBalances',
+        {
+          accountId: 'account-1',
+        },
+      )
 
       expect(output).toEqual({ error: expect.stringContaining('backend version 1.9.0') })
     })
@@ -367,7 +392,7 @@ describe('read tools for domains and accounts', () => {
         throw new CustodyError({ reason: 'Account account-404 not found' }, 404)
       }
 
-      const output = await callTool(options(fakeCustody({ accounts: { get } })), 'getAccount', {
+      const output = await callTool(devServerOptions(fakeCustody({ accounts: { get } })), 'getAccount', {
         accountId: 'account-404',
       })
 

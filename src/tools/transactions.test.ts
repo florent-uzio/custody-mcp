@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { callTool, devOptions as options, fakeCustody, metadata, signed } from '../testing'
+import { callTool, devServerOptions, fakeCustody, recordMetadata, signed } from '../testing'
 
 describe('read tools for transfers and transactions', () => {
   const transfer = {
@@ -20,7 +20,7 @@ describe('read tools for transfers and transactions', () => {
     it('lists the transfers of the Default domain, compactly, with the next cursor', async () => {
       const transfers = vi.fn(async () => ({ count: 1, nextStartingAfter: 'transfer-1', items: [transfer] }))
 
-      const output = await callTool(options(fakeCustody({ transactions: { transfers } })), 'listTransfers')
+      const output = await callTool(devServerOptions(fakeCustody({ transactions: { transfers } })), 'listTransfers')
 
       expect(output).toEqual({
         environment: 'dev',
@@ -46,7 +46,7 @@ describe('read tools for transfers and transactions', () => {
     it('narrows the list to the transfers of one account in another domain', async () => {
       const transfers = vi.fn(async () => ({ count: 0, items: [] }))
 
-      const output = await callTool(options(fakeCustody({ transactions: { transfers } })), 'listTransfers', {
+      const output = await callTool(devServerOptions(fakeCustody({ transactions: { transfers } })), 'listTransfers', {
         domainId: 'domain-9',
         accountId: 'account-1',
       })
@@ -62,7 +62,7 @@ describe('read tools for transfers and transactions', () => {
     it('returns one transfer in full', async () => {
       const get = vi.fn(async () => transfer)
 
-      const output = await callTool(options(fakeCustody({ transactions: { transfer: get } })), 'getTransfer', {
+      const output = await callTool(devServerOptions(fakeCustody({ transactions: { transfer: get } })), 'getTransfer', {
         transferId: 'transfer-1',
       })
 
@@ -77,15 +77,19 @@ describe('read tools for transfers and transactions', () => {
       accountId: 'account-1',
       ledgerId: 'xrpl-testnet',
       parameters: { type: 'XRPL', operation: { type: 'Payment', amount: '10000000' } },
-      metadata,
+      metadata: recordMetadata,
     })
 
     it('lists the transaction orders an Intent produced, compactly, with the next cursor', async () => {
       const orders = vi.fn(async () => ({ count: 1, nextStartingAfter: 'order-1', items: [order] }))
 
-      const output = await callTool(options(fakeCustody({ transactions: { orders } })), 'listTransactionOrders', {
-        intentId: 'intent-1',
-      })
+      const output = await callTool(
+        devServerOptions(fakeCustody({ transactions: { orders } })),
+        'listTransactionOrders',
+        {
+          intentId: 'intent-1',
+        },
+      )
 
       expect(output).toEqual({
         environment: 'dev',
@@ -110,7 +114,7 @@ describe('read tools for transfers and transactions', () => {
     it('lists every transaction order of the domain when given no Intent', async () => {
       const orders = vi.fn(async () => ({ count: 0, items: [] }))
 
-      await callTool(options(fakeCustody({ transactions: { orders } })), 'listTransactionOrders', { limit: 3 })
+      await callTool(devServerOptions(fakeCustody({ transactions: { orders } })), 'listTransactionOrders', { limit: 3 })
 
       expect(orders).toHaveBeenCalledWith({ domainId: 'domain-1' }, { limit: 3, startingAfter: undefined })
     })
@@ -134,9 +138,13 @@ describe('read tools for transfers and transactions', () => {
     it('lists the transactions a transaction order produced, compactly, with the next cursor', async () => {
       const transactions = vi.fn(async () => ({ count: 1, nextStartingAfter: 'transaction-1', items: [transaction] }))
 
-      const output = await callTool(options(fakeCustody({ transactions: { transactions } })), 'listTransactions', {
-        transactionOrderId: 'order-1',
-      })
+      const output = await callTool(
+        devServerOptions(fakeCustody({ transactions: { transactions } })),
+        'listTransactions',
+        {
+          transactionOrderId: 'order-1',
+        },
+      )
 
       expect(output).toEqual({
         environment: 'dev',
@@ -164,7 +172,10 @@ describe('read tools for transfers and transactions', () => {
       const { ledgerTransactionData: _, ...preparing } = { ...transaction, processing: { status: 'Preparing' } }
       const transactions = vi.fn(async () => ({ count: 1, items: [preparing] }))
 
-      const output = await callTool(options(fakeCustody({ transactions: { transactions } })), 'listTransactions')
+      const output = await callTool(
+        devServerOptions(fakeCustody({ transactions: { transactions } })),
+        'listTransactions',
+      )
 
       expect(output).toEqual({
         environment: 'dev',
@@ -184,12 +195,16 @@ describe('read tools for transfers and transactions', () => {
     it('narrows the list to the transactions of one account in another domain, one page after a cursor', async () => {
       const transactions = vi.fn(async () => ({ count: 0, items: [] }))
 
-      const output = await callTool(options(fakeCustody({ transactions: { transactions } })), 'listTransactions', {
-        domainId: 'domain-9',
-        accountId: 'account-1',
-        limit: 5,
-        cursor: 'transaction-0',
-      })
+      const output = await callTool(
+        devServerOptions(fakeCustody({ transactions: { transactions } })),
+        'listTransactions',
+        {
+          domainId: 'domain-9',
+          accountId: 'account-1',
+          limit: 5,
+          cursor: 'transaction-0',
+        },
+      )
 
       expect(output).toEqual({ environment: 'dev', domainId: 'domain-9', transactions: [] })
       expect(transactions).toHaveBeenCalledWith(
@@ -216,10 +231,14 @@ describe('read tools for transfers and transactions', () => {
       }
       const get = vi.fn(async () => transaction)
 
-      const output = await callTool(options(fakeCustody({ transactions: { transaction: get } })), 'getTransaction', {
-        transactionId: 'transaction-1',
-        domainId: 'domain-9',
-      })
+      const output = await callTool(
+        devServerOptions(fakeCustody({ transactions: { transaction: get } })),
+        'getTransaction',
+        {
+          transactionId: 'transaction-1',
+          domainId: 'domain-9',
+        },
+      )
 
       expect(output).toEqual({ environment: 'dev', domainId: 'domain-9', transaction })
       expect(get).toHaveBeenCalledWith({ domainId: 'domain-9', transactionId: 'transaction-1' })
