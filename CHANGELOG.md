@@ -1,5 +1,11 @@
 # @florent-uzio/custody-mcp
 
+## 0.1.2
+
+### Patch Changes
+
+- 934b4cb: The "No Environment configured" error and the server instructions now say `npx @florent-uzio/custody-mcp@latest add-env <name>`, matching the README, so `npx` runs the latest release instead of a cached copy.
+
 ## 0.1.1
 
 ### Patch Changes
