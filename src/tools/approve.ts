@@ -1,6 +1,7 @@
 import type { ToolExecutionContext } from '@mastra/core/tools'
 import { z } from 'zod'
 import type { CustodyClient } from '../custody'
+import { authorIn } from './author'
 import type { DefineCustodyTool } from './define'
 import type { Environment } from '../environments'
 
@@ -33,16 +34,6 @@ const summarize = (question: string, intent: Intent) => {
     `Proposed by ${'id' in details.author ? `user ${details.author.id} (domain ${details.author.domainId})` : details.author.subject}, expires ${details.expiryAt}`,
     `Payload: ${JSON.stringify(details.payload)}`,
   ].join('\n')
-}
-
-/** The Environment's user id in a domain: the author of its decisions. */
-const userIn = async (custody: CustodyClient, environment: Environment, domainId: string) => {
-  const { domains } = await custody.users.me()
-  const userId = domains.find(domain => domain.id === domainId)?.userReference.id
-  if (userId === undefined) {
-    throw new Error(`The user of Environment "${environment.name}" does not belong to domain ${domainId}.`)
-  }
-  return { domainId, id: userId }
 }
 
 const intentIdInput = z.string().describe('Id of the Intent (see listPendingApprovals).')
@@ -78,7 +69,7 @@ const decideConfirmed = async (
     return {}
   }
   await decide({
-    author: await userIn(custody, environment, domainId),
+    author: await authorIn(custody, environment, domainId),
     targetDomainId: domainId,
     intentId: input.intentId,
     proposalSignature: intent.data.details.proposalSignature,

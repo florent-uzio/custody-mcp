@@ -49,6 +49,21 @@ describe('proposing with guardrails', () => {
       expect(propose).not.toHaveBeenCalled()
     })
 
+    it('refuses in a domain the Environment user does not belong to, without a Dry run', async () => {
+      const dryRun = vi.fn()
+      const propose = vi.fn()
+
+      const output = await callTool(options({ users: { me }, intents: { dryRun, propose } }), 'proposeIntent', {
+        environment: 'dev',
+        domainId: 'domain-9',
+        payload,
+      })
+
+      expect(output).toEqual({ error: 'The user of Environment "dev" does not belong to domain domain-9.' })
+      expect(dryRun).not.toHaveBeenCalled()
+      expect(propose).not.toHaveBeenCalled()
+    })
+
     it("does not propose when the Dry run fails, and returns Custody's reasons", async () => {
       const dryRun = vi.fn(async () => ({
         type: 'v0_LockAccount',
