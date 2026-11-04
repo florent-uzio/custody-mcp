@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { domainIdFor, domainInput, type DefineCustodyTool } from './define'
+import type { DefineCustodyTool } from './define'
 
 // Both tools use Custody's internal API (/internal/v1/cmpt-cb-in), which a public API will replace.
 const INTERNAL_API_NOTE =
@@ -10,8 +10,8 @@ export const createDecryptionTools = (defineCustodyTool: DefineCustodyTool) => (
   decryptConfidentialInboxBalance: defineCustodyTool({
     id: 'decryptConfidentialInboxBalance',
     description: `Decrypt the inbox (CB_IN) balance of a confidential MPT for a Custody account, and wait for the result. The inbox holds confidential amounts received but not yet merged into the spendable balance. A cmpt-… ticker in getAccountBalances is not the inbox: on a tested account it differed from the decrypted inbox, so it appears to be the spendable balance (inferred, not read directly). To check, compare it with this result. The issuanceId is the hex after "cmpt-" or "mpt-" in the ticker name (see listTickers). If still pending after the wait, follow it with getConfidentialInboxDecryption. ${INTERNAL_API_NOTE}`,
+    domain: true,
     input: {
-      ...domainInput,
       accountId: z.string().describe('Id of the Custody account (see listAccounts).'),
       ledgerId: z.string().describe('Id of the ledger the MPT is on (see listLedgers).'),
       issuanceId: z
@@ -21,7 +21,7 @@ export const createDecryptionTools = (defineCustodyTool: DefineCustodyTool) => (
         ),
     },
     run: async args => {
-      const domainId = await domainIdFor(args)
+      const { domainId } = args
       const { accountId, ledgerId, issuanceId } = args.input
       const { status, isTerminal, decryption } = await args.custody.internal.cbInDecryption.initiateAndWait({
         accountId,
@@ -30,7 +30,6 @@ export const createDecryptionTools = (defineCustodyTool: DefineCustodyTool) => (
         issuanceId,
       })
       return {
-        domainId,
         accountId,
         issuanceId,
         requestId: decryption.id,

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { domainIdFor, domainInput, nextCursor, pageInput, pageQuery, type DefineCustodyTool } from './define'
+import type { DefineCustodyTool } from './define'
 import { explorerUrlField } from './explorer-links'
 
 const accountInput = { accountId: z.string().describe('Id of the Custody account (see listAccounts).') }
@@ -17,9 +17,10 @@ export const createAccountTools = (defineCustodyTool: DefineCustodyTool) => ({
   listDomains: defineCustodyTool({
     id: 'listDomains',
     description: 'List the Custody domains this Environment can see, one page at a time.',
-    input: pageInput,
-    run: async ({ custody, input }) => {
-      const page = await custody.domains.list(pageQuery(input))
+    paged: true,
+    input: {},
+    run: async ({ custody, pageQuery }) => {
+      const page = await custody.domains.list(pageQuery)
       return {
         domains: page.items.map(({ data }) => ({
           id: data.id,
@@ -27,7 +28,7 @@ export const createAccountTools = (defineCustodyTool: DefineCustodyTool) => ({
           parentId: data.parentId,
           lock: data.lock,
         })),
-        ...nextCursor(page),
+        nextCursor: page.nextStartingAfter,
       }
     },
   }),
@@ -36,12 +37,12 @@ export const createAccountTools = (defineCustodyTool: DefineCustodyTool) => ({
     id: 'listUsers',
     description:
       "List the users of a Custody domain, one page at a time, with their id, alias, public key, roles and login ids. getMe only returns the Environment's own user.",
-    input: { ...domainInput, ...pageInput },
-    run: async args => {
-      const domainId = await domainIdFor(args)
-      const page = await args.custody.users.list({ domainId }, pageQuery(args.input))
+    domain: true,
+    paged: true,
+    input: {},
+    run: async ({ custody, domainId, pageQuery }) => {
+      const page = await custody.users.list({ domainId }, pageQuery)
       return {
-        domainId,
         users: page.items.map(({ data }) => ({
           id: data.id,
           alias: data.alias,
@@ -50,7 +51,7 @@ export const createAccountTools = (defineCustodyTool: DefineCustodyTool) => ({
           loginIds: data.loginIds,
           lock: data.lock,
         })),
-        ...nextCursor(page),
+        nextCursor: page.nextStartingAfter,
       }
     },
   }),
@@ -58,19 +59,19 @@ export const createAccountTools = (defineCustodyTool: DefineCustodyTool) => ({
   listAccounts: defineCustodyTool({
     id: 'listAccounts',
     description: 'List the accounts of a Custody domain, one page at a time.',
-    input: { ...domainInput, ...pageInput },
-    run: async args => {
-      const domainId = await domainIdFor(args)
-      const page = await args.custody.accounts.list({ domainId }, pageQuery(args.input))
+    domain: true,
+    paged: true,
+    input: {},
+    run: async ({ custody, domainId, pageQuery }) => {
+      const page = await custody.accounts.list({ domainId }, pageQuery)
       return {
-        domainId,
         accounts: page.items.map(({ data }) => ({
           id: data.id,
           alias: data.alias,
           ledgerIds: data.ledgerIds ?? (data.ledgerId === undefined ? [] : [data.ledgerId]),
           lock: data.lock,
         })),
-        ...nextCursor(page),
+        nextCursor: page.nextStartingAfter,
       }
     },
   }),
@@ -78,24 +79,23 @@ export const createAccountTools = (defineCustodyTool: DefineCustodyTool) => ({
   getAccount: defineCustodyTool({
     id: 'getAccount',
     description: 'Get one account of a Custody domain, with its ledgers and processing status.',
-    input: { ...domainInput, ...accountInput },
-    run: async args => {
-      const domainId = await domainIdFor(args)
-      const { data, additionalDetails } = await args.custody.accounts.get({ domainId, accountId: args.input.accountId })
-      return { domainId, account: data, additionalDetails }
+    domain: true,
+    input: accountInput,
+    run: async ({ custody, domainId, input }) => {
+      const { data, additionalDetails } = await custody.accounts.get({ domainId, accountId: input.accountId })
+      return { account: data, additionalDetails }
     },
   }),
 
   listAccountAddresses: defineCustodyTool({
     id: 'listAccountAddresses',
     description: 'List the ledger addresses of a Custody account, one page at a time.',
-    input: { ...domainInput, ...accountInput, ...pageInput },
-    run: async args => {
-      const domainId = await domainIdFor(args)
-      const { accountId } = args.input
-      const page = await args.custody.accounts.addresses({ domainId, accountId }, pageQuery(args.input))
+    domain: true,
+    paged: true,
+    input: accountInput,
+    run: async ({ custody, domainId, input: { accountId }, pageQuery, explorer }) => {
+      const page = await custody.accounts.addresses({ domainId, accountId }, pageQuery)
       return {
-        domainId,
         accountId,
         addresses: await Promise.all(
           page.items.map(async item => ({
@@ -103,10 +103,10 @@ export const createAccountTools = (defineCustodyTool: DefineCustodyTool) => ({
             ledgerId: item.ledgerId,
             address: item.address,
             scope: item.scope,
-            ...explorerUrlField(await args.explorer.address(item.ledgerId, item.address)),
+            ...explorerUrlField(await explorer.address(item.ledgerId, item.address)),
           })),
         ),
-        ...nextCursor(page),
+        nextCursor: page.nextStartingAfter,
       }
     },
   }),
@@ -114,13 +114,12 @@ export const createAccountTools = (defineCustodyTool: DefineCustodyTool) => ({
   getAccountBalances: defineCustodyTool({
     id: 'getAccountBalances',
     description: 'List the balances of a Custody account, one ticker per item, one page at a time.',
-    input: { ...domainInput, ...accountInput, ...pageInput },
-    run: async args => {
-      const domainId = await domainIdFor(args)
-      const { accountId } = args.input
-      const page = await args.custody.accounts.getAccountBalances({ domainId, accountId }, pageQuery(args.input))
+    domain: true,
+    paged: true,
+    input: accountInput,
+    run: async ({ custody, domainId, input: { accountId }, pageQuery }) => {
+      const page = await custody.accounts.getAccountBalances({ domainId, accountId }, pageQuery)
       return {
-        domainId,
         accountId,
         balances: page.items.map(item => ({
           tickerId: item.tickerId,
@@ -130,7 +129,7 @@ export const createAccountTools = (defineCustodyTool: DefineCustodyTool) => ({
           quarantinedAmount: item.quarantinedAmount,
           lastUpdatedAt: item.lastUpdatedAt,
         })),
-        ...nextCursor(page),
+        nextCursor: page.nextStartingAfter,
       }
     },
   }),

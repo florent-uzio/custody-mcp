@@ -1,7 +1,7 @@
 import type { ToolExecutionContext } from '@mastra/core/tools'
 import { z } from 'zod'
 import type { CustodyClient } from '../custody'
-import { domainIdFor, domainInput, type DefineCustodyTool } from './define'
+import type { DefineCustodyTool } from './define'
 import type { Environment } from '../environments'
 
 // The capabilities a 2026-07-28 client declares on each request, under this `_meta` key.
@@ -48,7 +48,8 @@ const userIn = async (custody: CustodyClient, environment: Environment, domainId
 const intentIdInput = z.string().describe('Id of the Intent (see listPendingApprovals).')
 
 type DecisionArgs = {
-  input: { domainId?: string; intentId: string }
+  input: { intentId: string }
+  domainId: string
   custody: CustodyClient
   environment: Environment
   context: ToolExecutionContext
@@ -59,7 +60,7 @@ type DecisionArgs = {
  * elicitation in the client it acts at once, relying on the instructions' rule, and says so in the result.
  */
 const decideConfirmed = async (
-  { input, custody, environment, context }: DecisionArgs,
+  { input, domainId, custody, environment, context }: DecisionArgs,
   verb: string,
   decide: (decision: {
     author: { domainId: string; id: string }
@@ -68,7 +69,6 @@ const decideConfirmed = async (
     proposalSignature: string
   }) => Promise<unknown>,
 ) => {
-  const domainId = await domainIdFor({ input, custody, environment })
   const intent = await custody.intents.get({ domainId, intentId: input.intentId })
   const confirmed = context.resumeData !== undefined
   // A decline or cancel never comes back here: the server ends the call without running the tool again.
@@ -83,7 +83,7 @@ const decideConfirmed = async (
     intentId: input.intentId,
     proposalSignature: intent.data.details.proposalSignature,
   })
-  return { domainId, intentId: input.intentId, ...(confirmed ? {} : { note: NO_CONFIRMATION_SHOWN }) }
+  return { intentId: input.intentId, ...(confirmed ? {} : { note: NO_CONFIRMATION_SHOWN }) }
 }
 
 /** The tools that Approve or Reject an Intent as the Environment's user, after the human confirms (ADR-0001). */
@@ -92,7 +92,8 @@ export const createApproveTools = (defineCustodyTool: DefineCustodyTool) => ({
     id: 'approveIntent',
     description: 'Approve a pending Intent as the Environment user, after the human confirms.',
     access: 'approve',
-    input: { ...domainInput, intentId: intentIdInput },
+    domain: true,
+    input: { intentId: intentIdInput },
     // Empty: the message carries the summary, and Accept is the human's yes.
     resumeSchema: z.object({}),
     run: args =>
@@ -105,8 +106,8 @@ export const createApproveTools = (defineCustodyTool: DefineCustodyTool) => ({
     id: 'rejectIntent',
     description: 'Reject a pending Intent as the Environment user, with a reason, after the human confirms.',
     access: 'approve',
+    domain: true,
     input: {
-      ...domainInput,
       intentId: intentIdInput,
       reason: z.string().min(1).describe('Why the Intent is rejected, recorded in Custody.'),
     },
