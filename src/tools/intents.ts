@@ -1,7 +1,7 @@
 import { CustodyError, type Core_RemainingDomainUsers, type Core_TrustedIntent } from '@florent-uzio/custody'
 import { z } from 'zod'
-import { domainIdFor, domainInput, nextCursor, pageInput, pageQuery, type DefineCustodyTool } from './custody-tool'
-import type { CustodyClient } from './custody'
+import { domainIdFor, domainInput, nextCursor, pageInput, pageQuery, type DefineCustodyTool } from './define'
+import type { CustodyClient } from '../custody'
 
 // custody.js 2.14 types these two responses wrongly: getIntents returns a page of Intents, and
 // getRemainingUsers one entry per domain (see the OpenAPI operations of the same names).

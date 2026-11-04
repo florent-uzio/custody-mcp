@@ -1,8 +1,8 @@
 import type { ToolExecutionContext } from '@mastra/core/tools'
 import { z } from 'zod'
-import type { CustodyClient } from './custody'
-import { domainIdFor, domainInput, type DefineCustodyTool } from './custody-tool'
-import type { Environment } from './environments'
+import type { CustodyClient } from '../custody'
+import { domainIdFor, domainInput, type DefineCustodyTool } from './define'
+import type { Environment } from '../environments'
 
 // The capabilities a 2026-07-28 client declares on each request, under this `_meta` key.
 const CLIENT_CAPABILITIES_META_KEY = 'io.modelcontextprotocol/clientCapabilities'

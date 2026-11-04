@@ -1,4 +1,4 @@
-import { nextCursor, pageInput, pageQuery, type DefineCustodyTool } from './custody-tool'
+import { nextCursor, pageInput, pageQuery, type DefineCustodyTool } from './define'
 
 /** Read tools for the reference data of a Custody instance, which is the same in every domain. */
 export const createReferenceTools = (defineCustodyTool: DefineCustodyTool) => ({

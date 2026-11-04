@@ -1,11 +1,19 @@
 import { z } from 'zod'
-import { domainIdFor, domainInput, nextCursor, pageInput, pageQuery, type DefineCustodyTool } from './custody-tool'
+import { domainIdFor, domainInput, nextCursor, pageInput, pageQuery, type DefineCustodyTool } from './define'
 import { explorerUrlField } from './explorer-links'
 
 const accountInput = { accountId: z.string().describe('Id of the Custody account (see listAccounts).') }
 
 /** Read tools for the domains, users and accounts of an Environment's Custody user. */
 export const createAccountTools = (defineCustodyTool: DefineCustodyTool) => ({
+  getMe: defineCustodyTool({
+    id: 'getMe',
+    description:
+      'Get the Custody user this Environment acts as: its public key and, for each domain it belongs to, the user id, alias and roles.',
+    input: {},
+    run: async ({ custody }) => ({ me: await custody.users.me() }),
+  }),
+
   listDomains: defineCustodyTool({
     id: 'listDomains',
     description: 'List the Custody domains this Environment can see, one page at a time.',

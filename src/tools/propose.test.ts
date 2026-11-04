@@ -1,7 +1,7 @@
 import { CustodyError } from '@florent-uzio/custody'
 import { describe, expect, it, vi } from 'vitest'
-import type { AccessLevel } from './environments'
-import { callTool, configFile, DEV, fakeCustody } from './testing'
+import type { AccessLevel } from '../environments'
+import { callTool, configFile, DEV, fakeCustody } from '../testing'
 
 // One Environment with a Default domain at the given Access level; its key comes from an env var.
 const options = (custody: object, access: AccessLevel = 'propose') => ({

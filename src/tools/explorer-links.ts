@@ -1,5 +1,5 @@
-import type { CustodyClient } from './custody'
-import type { Environment } from './environments'
+import type { CustodyClient } from '../custody'
+import type { Environment } from '../environments'
 
 // The XRPL networks with a public explorer, by the networkId Custody reports for an XRPL ledger (ADR-0003).
 const KNOWN_EXPLORERS: Record<number, string> = {
