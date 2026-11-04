@@ -112,11 +112,11 @@ If `AUTH_URL`, `API_URL`, `PUBLIC_KEY` and `PRIVATE_KEY` are set (as in custody-
 
 Each Environment has an **Access level**, chosen in `add-env` (or with `CUSTODY_ACCESS` for the `env` Environment). It caps what the AI client can do through that Environment:
 
-| Access level     | Allows                                                                                   |
-| ---------------- | ---------------------------------------------------------------------------------------- |
-| `read` (default) | Reading: users, domains, accounts, balances, Intents, transfers, transactions, Dry runs. |
-| `propose`        | `read`, plus Proposing Intents (`proposeXrplIntent`, `proposeIntent`).                   |
-| `approve`        | `propose`, plus Approving and Rejecting Intents (`approveIntent`, `rejectIntent`).       |
+| Access level     | Allows                                                                                                          |
+| ---------------- | --------------------------------------------------------------------------------------------------------------- |
+| `read` (default) | Reading: users (`getMe`, `listUsers`), domains, accounts, balances, Intents, transfers, transactions, Dry runs. |
+| `propose`        | `read`, plus Proposing Intents (`proposeXrplIntent`, `proposeIntent`).                                          |
+| `approve`        | `propose`, plus Approving and Rejecting Intents (`approveIntent`, `rejectIntent`).                              |
 
 The Access level only limits this server. What your Custody user may do is still decided by Custody's own roles and policies.
 

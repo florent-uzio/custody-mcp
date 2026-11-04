@@ -8,6 +8,9 @@ export const CUSTODY_INSTRUCTIONS = `
     - Say which Environment you used in every response: never mix data from two Environments without saying so.
     - If no Environment is configured, tell the user to run \`npx @florent-uzio/custody-mcp@latest add-env <name>\`.
 
+    ## Users
+    - getMe returns only the Environment's own user. Use listUsers to list the users of a domain.
+
     ## Proposing
     - Use proposeXrplIntent for XRPL transactions (Payment, TrustSet, MPToken and ConfidentialMPT operations) and proposeIntent with a raw \`v0_*\` payload for other Intent types.
     - Write tools (proposeXrplIntent, proposeIntent) need an Environment with the \`propose\` Access level, and must name their \`environment\`: they never use the default.
