@@ -6,7 +6,7 @@ export const CUSTODY_INSTRUCTIONS = `
     - An Environment is a named Custody instance together with the user's credentials on it. Use listEnvironments to see them.
     - Tools use the default Environment unless you pass \`environment\`.
     - Say which Environment you used in every response: never mix data from two Environments without saying so.
-    - If no Environment is configured, tell the user to run \`npx @florent-uzio/custody-mcp add-env <name>\`.
+    - If no Environment is configured, tell the user to run \`npx @florent-uzio/custody-mcp@latest add-env <name>\`.
 
     ## Proposing
     - Use proposeXrplIntent for XRPL transactions (Payment, TrustSet, MPToken and ConfidentialMPT operations) and proposeIntent with a raw \`v0_*\` payload for other Intent types.
