@@ -26,5 +26,6 @@ export const CUSTODY_INSTRUCTIONS = `
 
     ## Responses
     - Explain results in plain terms and explain Custody errors clearly.
+    - Give the \`explorerUrl\` of a transaction or address when it helps the user check it on the ledger. Results on a custom XRPL network have one only once \`xrplNodes.<ledgerId>\` is set in the Environment's config.
     - Never ask for, show or repeat a private key.
 `

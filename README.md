@@ -98,11 +98,18 @@ Environments are saved in `~/.config/custody-mcp/config.json`. Set `CUSTODY_MCP_
       "publicKey": "MCowBQYDK2VwAyEA…",
       "keyReference": "keychain:custody-mcp/dev",
       "access": "read",
-      "defaultDomainId": "…"
+      "defaultDomainId": "…",
+      "xrplNodes": { "<ledgerId>": "wss://repo-sandbox.ripplex.io:6006" }
     }
   }
 }
 ```
+
+The file is read on every tool call, so edits (by hand or by an agent with file access) apply without a restart.
+
+### Explorer links
+
+Results with a transaction hash or an address on an XRPL ledger (`listTransactions`, `getTransaction`, `listAccountAddresses`, `findAccountByAddress`) carry an `explorerUrl`. Ledgers on mainnet, testnet and devnet link to `livenet.xrpl.org`, `testnet.xrpl.org` and `devnet.xrpl.org` with nothing to configure. For an XRPL ledger on any other network, map its `ledgerId` (see `listLedgers`) to a node URL in `xrplNodes`, and links point to `custom.xrpl.org`. Without one, results simply have no `explorerUrl`.
 
 ### Zero-setup env vars
 

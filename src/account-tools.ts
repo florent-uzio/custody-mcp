@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { domainIdFor, domainInput, nextCursor, pageInput, pageQuery, type DefineCustodyTool } from './custody-tool'
+import { explorerUrlField } from './explorer-links'
 
 const accountInput = { accountId: z.string().describe('Id of the Custody account (see listAccounts).') }
 
@@ -88,12 +89,15 @@ export const createAccountTools = (defineCustodyTool: DefineCustodyTool) => ({
       return {
         domainId,
         accountId,
-        addresses: page.items.map(item => ({
-          id: item.id,
-          ledgerId: item.ledgerId,
-          address: item.address,
-          scope: item.scope,
-        })),
+        addresses: await Promise.all(
+          page.items.map(async item => ({
+            id: item.id,
+            ledgerId: item.ledgerId,
+            address: item.address,
+            scope: item.scope,
+            ...explorerUrlField(await args.explorer.address(item.ledgerId, item.address)),
+          })),
+        ),
         ...nextCursor(page),
       }
     },
@@ -133,7 +137,7 @@ export const createAccountTools = (defineCustodyTool: DefineCustodyTool) => ({
       ledgerId: z.string().optional().describe('Id of the ledger, when the address is on several.'),
       domainId: z.string().optional().describe('Id of the domain to look in, when the address is in several.'),
     },
-    run: async ({ custody, input }) => {
+    run: async ({ custody, input, explorer }) => {
       const found = await custody.accounts.findByAddress(input.address, {
         ledgerId: input.ledgerId,
         domainId: input.domainId,
@@ -147,6 +151,7 @@ export const createAccountTools = (defineCustodyTool: DefineCustodyTool) => ({
                 accountId: found.accountId,
                 ledgerId: found.ledgerId,
                 address: found.address,
+                ...explorerUrlField(await explorer.address(found.ledgerId, found.address)),
               },
       }
     },

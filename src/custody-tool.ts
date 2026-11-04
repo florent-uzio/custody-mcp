@@ -1,6 +1,7 @@
 import { createTool, type ToolExecutionContext } from '@mastra/core/tools'
 import { z } from 'zod'
 import type { ConnectCustody, CustodyClient } from './custody'
+import { createExplorerLinks, type ExplorerLinks } from './explorer-links'
 import { ACCESS_LEVELS, loadEnvironments, type AccessLevel, type Environment } from './environments'
 import { resolveKeyReference } from './key-references'
 
@@ -80,6 +81,8 @@ type CustodyToolSpec<Shape extends z.ZodRawShape, Result extends object> = {
     input: z.infer<z.ZodObject<Shape>>
     custody: CustodyClient
     environment: Environment
+    /** Builds Explorer links for results on XRPL ledgers. */
+    explorer: ExplorerLinks
     /** Mastra's execution context: the MCP request, and suspend/resume to ask the human. */
     context: ToolExecutionContext
   }) => Promise<Result>
@@ -93,7 +96,10 @@ type CustodyToolSpec<Shape extends z.ZodRawShape, Result extends object> = {
 export const createCustodyToolFactory = (env: Record<string, string | undefined>, connect: ConnectCustody) => {
   // One client per Environment keeps its auth token across calls. The key is only read when a client
   // is made, and the client is remade when the Environment's settings change in the config file.
-  const clients = new Map<string, { settings: string; custody: CustodyClient }>()
+  const clients = new Map<
+    string,
+    { settings: string; custody: CustodyClient; explorer: ReturnType<typeof createExplorerLinks> }
+  >()
 
   const findEnvironment = async (name: string | undefined) => {
     const { environments, defaultName } = await loadEnvironments(env)
@@ -121,10 +127,11 @@ export const createCustodyToolFactory = (env: Record<string, string | undefined>
           `Cannot read the private key of Environment "${environment.name}" from ${environment.keyReference}: ${error.message}`,
         )
       })
-      cached = { settings, custody: connect({ ...environment, privateKey }) }
+      const custody = connect({ ...environment, privateKey })
+      cached = { settings, custody, explorer: createExplorerLinks(custody) }
       clients.set(environment.name, cached)
     }
-    return cached.custody
+    return cached
   }
 
   return <Shape extends z.ZodRawShape, Result extends object>(spec: CustodyToolSpec<Shape, Result>) => {
@@ -147,9 +154,15 @@ export const createCustodyToolFactory = (env: Record<string, string | undefined>
             `${spec.id} needs the "${access}" Access level, but Environment "${environment.name}" has "${environment.access}".`,
           )
         }
-        const custody = await clientFor(environment)
+        const { custody, explorer } = await clientFor(environment)
         try {
-          const result = await spec.run({ input: input as z.infer<z.ZodObject<Shape>>, custody, environment, context })
+          const result = await spec.run({
+            input: input as z.infer<z.ZodObject<Shape>>,
+            custody,
+            environment,
+            explorer: explorer(environment),
+            context,
+          })
           return { environment: environment.name, ...result }
         } catch (error) {
           throw error instanceof Error ? error : new Error(JSON.stringify(error) ?? String(error))

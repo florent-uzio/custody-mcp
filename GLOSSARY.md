@@ -36,6 +36,10 @@ _Avoid_: Sign, accept, decline
 An Intent still awaiting a decision from the Environment's user.
 _Avoid_: Open request, todo
 
+**Explorer link**:
+A URL to the XRPL explorer page for a transaction or address on one of a Custody instance's XRPL ledgers.
+_Avoid_: Network URL, explorer URL
+
 **Dry run**:
 Custody's evaluation of an Intent without proposing it, used to catch errors before a Propose.
 _Avoid_: Simulation, validation, preview
