@@ -9,12 +9,16 @@ const INTERNAL_API_NOTE =
 export const createDecryptionTools = (defineCustodyTool: DefineCustodyTool) => ({
   decryptConfidentialInboxBalance: defineCustodyTool({
     id: 'decryptConfidentialInboxBalance',
-    description: `Decrypt the inbox (CB_IN) balance of a confidential MPT for a Custody account, and wait for the result. The spendable balance is not covered. If it is still pending after the wait, follow it with getConfidentialInboxDecryption. ${INTERNAL_API_NOTE}`,
+    description: `Decrypt the inbox (CB_IN) balance of a confidential MPT for a Custody account, and wait for the result. The inbox holds confidential amounts received but not yet merged into the spendable balance. A cmpt-… ticker in getAccountBalances is not the inbox: on a tested account it differed from the decrypted inbox, so it appears to be the spendable balance (inferred, not read directly). To check, compare it with this result. The issuanceId is the hex after "cmpt-" or "mpt-" in the ticker name (see listTickers). If still pending after the wait, follow it with getConfidentialInboxDecryption. ${INTERNAL_API_NOTE}`,
     input: {
       ...domainInput,
       accountId: z.string().describe('Id of the Custody account (see listAccounts).'),
       ledgerId: z.string().describe('Id of the ledger the MPT is on (see listLedgers).'),
-      issuanceId: z.string().describe('MPT issuance id (the hex part of the cmpt-… ticker name, see listTickers).'),
+      issuanceId: z
+        .string()
+        .describe(
+          'MPT issuance id: the hex after "cmpt-" or "mpt-" in the ticker name, e.g. 002A08E0… (see listTickers).',
+        ),
     },
     run: async args => {
       const domainId = await domainIdFor(args)
