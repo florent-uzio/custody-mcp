@@ -55,7 +55,9 @@ export const loadEnvironments = async (env: Env): Promise<Environments> => {
     ...environmentsFromEnv(env),
   ]
   if (environments.length === 0) {
-    throw new Error('No Environment configured. Run `npx @florent-uzio/custody-mcp add-env <name>` to set one up.')
+    throw new Error(
+      'No Environment configured. Run `npx @florent-uzio/custody-mcp@latest add-env <name>` to set one up.',
+    )
   }
   if (config.default !== undefined && !environments.some(item => item.name === config.default)) {
     const known = environments.map(item => item.name).join(', ')

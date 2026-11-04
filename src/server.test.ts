@@ -88,7 +88,7 @@ describe('custody MCP server', () => {
       const output = await callTool({ env: { CUSTODY_MCP_CONFIG: NO_CONFIG } }, 'listEnvironments')
 
       expect(output).toEqual({
-        error: 'No Environment configured. Run `npx @florent-uzio/custody-mcp add-env <name>` to set one up.',
+        error: 'No Environment configured. Run `npx @florent-uzio/custody-mcp@latest add-env <name>` to set one up.',
       })
     })
 
@@ -317,7 +317,7 @@ describe('custody MCP server', () => {
       const output = await callTool({ env: { CUSTODY_MCP_CONFIG: NO_CONFIG }, connect: () => fakeCustody({}) }, 'getMe')
 
       expect(output).toEqual({
-        error: 'No Environment configured. Run `npx @florent-uzio/custody-mcp add-env <name>` to set one up.',
+        error: 'No Environment configured. Run `npx @florent-uzio/custody-mcp@latest add-env <name>` to set one up.',
       })
     })
 
