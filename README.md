@@ -10,18 +10,26 @@ The server speaks only the 2026-07-28 MCP protocol (the one `@mastra/mcp` 2.x se
 
 ## Use it from your MCP client
 
-Add the server to your client's MCP config. It runs with `npx`, so there is nothing to clone or build:
+The server runs with `npx`, so there is nothing to clone or build. In Claude Code, add it for all your projects with:
+
+```sh
+claude mcp add custody --scope user -- npx -y @florent-uzio/custody-mcp@latest
+```
+
+For other clients, add it to the client's MCP config:
 
 ```json
 {
   "mcpServers": {
     "custody": {
       "command": "npx",
-      "args": ["-y", "@florent-uzio/custody-mcp"]
+      "args": ["-y", "@florent-uzio/custody-mcp@latest"]
     }
   }
 }
 ```
+
+`@latest` makes `npx` check npm each time the client starts the server, so you get new releases on your next client restart instead of a copy cached by `npx`. To stay on one version, pin it instead, e.g. `@florent-uzio/custody-mcp@0.1.0`.
 
 The server needs at least one **Environment**: a Ripple Custody instance together with the credentials of your Custody user on it. Set one up with the setup CLI below.
 
@@ -29,19 +37,19 @@ The server needs at least one **Environment**: a Ripple Custody instance togethe
 
 The same `custody-mcp` command, run with a subcommand, manages your Environments. With no subcommand it starts the MCP server.
 
-| Command                                            | What it does                                                         |
-| -------------------------------------------------- | -------------------------------------------------------------------- |
-| `npx @florent-uzio/custody-mcp add-env <name>`     | Sets up a new Environment, step by step.                             |
-| `npx @florent-uzio/custody-mcp list-envs`          | Shows every Environment and where its key is stored (never the key). |
-| `npx @florent-uzio/custody-mcp remove-env <name>`  | Removes an Environment from the config file.                         |
-| `npx @florent-uzio/custody-mcp set-default <name>` | Makes an Environment the one read tools use when a call names none.  |
+| Command                                                   | What it does                                                         |
+| --------------------------------------------------------- | -------------------------------------------------------------------- |
+| `npx @florent-uzio/custody-mcp@latest add-env <name>`     | Sets up a new Environment, step by step.                             |
+| `npx @florent-uzio/custody-mcp@latest list-envs`          | Shows every Environment and where its key is stored (never the key). |
+| `npx @florent-uzio/custody-mcp@latest remove-env <name>`  | Removes an Environment from the config file.                         |
+| `npx @florent-uzio/custody-mcp@latest set-default <name>` | Makes an Environment the one read tools use when a call names none.  |
 
 Changes take effect straight away: the server re-reads the config file on every tool call, so you do not need to restart your AI client.
 
 ### `add-env <name>`
 
 ```sh
-npx @florent-uzio/custody-mcp add-env dev
+npx @florent-uzio/custody-mcp@latest add-env dev
 ```
 
 It walks you through these steps:
