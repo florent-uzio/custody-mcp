@@ -53,7 +53,7 @@ describe('proposing with guardrails', () => {
       const dryRun = vi.fn(async () => ({
         type: 'v0_LockAccount',
         success: false,
-        errors: ['Account account-1 is already locked'],
+        errors: ['Account account-1 is already locked', 'Account account-1 is frozen'],
       }))
       const propose = vi.fn()
 
@@ -62,7 +62,10 @@ describe('proposing with guardrails', () => {
         payload,
       })
 
-      expect(output).toEqual({ error: expect.stringContaining('Account account-1 is already locked') })
+      // The same wording custody.js uses when an XRPL Dry run fails, so both Propose tools read alike.
+      expect(output).toEqual({
+        error: 'Dry run failed, intent not proposed: Account account-1 is already locked, Account account-1 is frozen',
+      })
       expect(dryRun).toHaveBeenCalled()
       expect(propose).not.toHaveBeenCalled()
     })

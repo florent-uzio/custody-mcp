@@ -73,8 +73,9 @@ const dryRun = async (custody: CustodyClient, request: Core_IntentDryRunRequest)
 const proposeChecked = async (custody: CustodyClient, domainId: string, request: Core_IntentDryRunRequest) => {
   const result = await dryRun(custody, request)
   if (!result.success) {
-    const reasons = result.errors.length > 0 ? result.errors.join('; ') : 'Custody gave no reason'
-    throw new Error(`The Dry run failed, so nothing was proposed: ${reasons}`)
+    // Worded as custody.js words a failed XRPL Dry run, so both Propose tools fail alike.
+    const reasons = result.errors.length > 0 ? result.errors.join(', ') : 'unknown error'
+    throw new Error(`Dry run failed, intent not proposed: ${reasons}`)
   }
   // custody.js types the proposed payload apart from the dry-run one; both are the raw payload given.
   await custody.intents.propose({ request: { ...request, type: 'Propose' } as Core_ProposeIntentBody['request'] })
