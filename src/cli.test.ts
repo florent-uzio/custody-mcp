@@ -142,6 +142,14 @@ describe('setup CLI', () => {
       expect(result.output).not.toContain('PRIVATE KEY')
     })
 
+    it('refuses --import with --store env, before asking anything', async () => {
+      const result = await run(['add-env', 'dev', '--import', 'key.pem', '--store', 'env'])
+
+      expect(result.exitCode).toBe(1)
+      expect(result.output).toContain('--import cannot be used with --store env')
+      expect(result.questions).toEqual([])
+    })
+
     it('stores the key in a file next to the config with --store file', async () => {
       const config = configFile()
 
