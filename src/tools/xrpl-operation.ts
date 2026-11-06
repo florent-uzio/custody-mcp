@@ -11,6 +11,18 @@ const destination = z
   ])
   .describe('Who receives it: an XRPL address, a Custody account id, or a Custody endpoint id.')
 
+/** An XLS-68 sponsor that pays the fee and/or the reserve of a transaction. */
+export const sponsorship = z
+  .object({
+    sponsor: destination.describe('The sponsor: an XRPL address, a Custody account id, or a Custody endpoint id.'),
+    flags: z
+      .array(z.enum(['spfSponsorFee', 'spfSponsorReserve']))
+      .describe('What the sponsor pays: its fee (`spfSponsorFee`), its reserve (`spfSponsorReserve`), or both.'),
+  })
+  .describe(
+    'XLS-68 sponsorship: another account pays the fee and/or owner reserve. On an outer Batch only `spfSponsorFee` is valid.',
+  )
+
 const tokenIdentifier = z
   .discriminatedUnion('type', [
     z.object({ type: z.literal('MPTokenIssuanceId'), issuanceId: z.string() }),
@@ -25,6 +37,10 @@ const payment = z.object({
   destination,
   amount,
   destinationTag: z.number().int().optional(),
+  flags: z
+    .array(z.enum(['tfSponsorCreatedAccount']))
+    .optional()
+    .describe('`tfSponsorCreatedAccount`: the sponsor pays the reserve of the account this Payment creates.'),
   currency: z
     .discriminatedUnion('type', [
       z.object({ type: z.literal('Currency'), code: z.string(), issuer: z.string() }),
@@ -107,6 +123,27 @@ const confidentialMptSend = z.object({
   amount: amount.optional(),
 })
 
+const sponsorshipSetAsSponsor = z.object({
+  type: z.literal('SponsorshipSetAsSponsor'),
+  sponsee: destination,
+  feeAmountDelta: z.string().optional().describe('Drops to add to the fee the sponsor has funded for the sponsee.'),
+  remainingOwnerCountDelta: z.number().int().optional().describe('Owner reserves to add to what the sponsee has left.'),
+  maxFee: z.string().optional().describe('The most, in drops, the sponsor pays for one transaction.'),
+  flags: z
+    .array(
+      z.enum([
+        'tfRequireSignForFee',
+        'tfClearRequireSignForFee',
+        'tfRequireSignForReserve',
+        'tfClearRequireSignForReserve',
+        'tfDeleteObject',
+      ]),
+    )
+    .default([]),
+})
+
+const sponsorshipSetAsSponsee = z.object({ type: z.literal('SponsorshipSetAsSponsee'), sponsor: destination })
+
 /** The XRPL operation of a transaction order, in Custody's shape. */
 export const xrplOperation = z
   .discriminatedUnion('type', [
@@ -121,5 +158,7 @@ export const xrplOperation = z
     confidentialMptConvertBack,
     confidentialMptMergeInbox,
     confidentialMptSend,
+    sponsorshipSetAsSponsor,
+    sponsorshipSetAsSponsee,
   ])
   .describe('The XRPL operation to propose, chosen by `type`.')

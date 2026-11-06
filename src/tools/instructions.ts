@@ -12,12 +12,17 @@ export const CUSTODY_INSTRUCTIONS = `
     - getMe returns only the Environment's own user. Use listUsers to list the users of a domain.
 
     ## Proposing
-    - Use proposeXrplIntent for XRPL transactions (Payment, TrustSet, MPToken and ConfidentialMPT operations) and proposeIntent with a raw \`v0_*\` payload for other Intent types.
-    - Write tools (proposeXrplIntent, proposeIntent) need an Environment with the \`propose\` Access level, and must name their \`environment\`: they never use the default.
+    - Use proposeXrplIntent for XRPL transactions (Payment, TrustSet, MPToken, ConfidentialMPT and SponsorshipSet operations) and proposeIntent with a raw \`v0_*\` payload for other Intent types.
+    - Write tools (proposeXrplIntent, proposeIntent, signBatchSigner, proposeBatchIntent) need an Environment with the \`propose\` Access level, and must name their \`environment\`: they never use the default.
     - Both run a Dry run first and propose nothing if it fails. Use dryRunXrplIntent (XRPL transactions) or dryRunIntent (raw \`v0_*\` payloads) to check an Intent without proposing it.
     - Both return at once: approvers act later. Use waitForIntent to follow it; "still awaiting approval" is not an error.
+    - To have another account pay the fee and/or reserve (XLS-68 Sponsorship), pass \`sponsorship\` to proposeXrplIntent or dryRunXrplIntent.
     - Never propose the same Intent again because a result looks incomplete: check it with getIntent first.
     - \`Executed\` means Custody accepted the order, not that it settled on the ledger.
+
+    ## Batch
+    - A Batch (XLS-56, Batch v1.1) takes three steps. dryRunBatchIntent returns \`signers\`, one entry per account that must sign. signBatchSigner proposes the signing of one entry for an account on this Custody instance: pass the entry unchanged, once per signer, and follow its Intent with waitForIntent. getBatchSignature then returns that signer's \`batchSigner\`. proposeBatchIntent proposes the Batch with all the \`batchSigner\`s, and the same Batch input as the Dry run.
+    - Never sign an entry or propose a Batch again because a result looks incomplete: check its Intent with getIntent first.
 
     ## Approving and rejecting
     - approveIntent and rejectIntent decide on an Intent as the Environment's user. They need an Environment with the \`approve\` Access level, and must name their \`environment\`.

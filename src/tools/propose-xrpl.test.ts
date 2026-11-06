@@ -54,6 +54,48 @@ describe('proposeXrplIntent', () => {
     })
   })
 
+  it('passes a sponsorship through to custody.js', async () => {
+    const proposeIntent = vi.fn(async (_params: object, _options: object) => ({
+      requestId: 'r',
+      intentId: 'intent-1',
+      payloadId: 'payload-1',
+    }))
+    const get = vi.fn(async () => ({ data: { state: { status: 'Open' } } }))
+    const sponsorship = { sponsor: { type: 'Address', address: 'rSponsor' }, flags: ['spfSponsorFee'] }
+
+    await callTool(options({ xrpl: { proposeIntent }, intents: { get } }), 'proposeXrplIntent', {
+      environment: 'dev',
+      account: ADDRESS,
+      operation: payment,
+      sponsorship,
+    })
+
+    expect(proposeIntent.mock.calls[0][0]).toEqual({ Account: ADDRESS, operation: payment, sponsorship })
+  })
+
+  it('proposes a SponsorshipSetAsSponsor operation', async () => {
+    const proposeIntent = vi.fn(async (_params: object, _options: object) => ({
+      requestId: 'r',
+      intentId: 'intent-1',
+      payloadId: 'payload-1',
+    }))
+    const get = vi.fn(async () => ({ data: { state: { status: 'Open' } } }))
+    const operation = {
+      type: 'SponsorshipSetAsSponsor',
+      sponsee: { type: 'Address', address: 'rSponsee' },
+      feeAmountDelta: '1000000',
+      flags: [],
+    }
+
+    await callTool(options({ xrpl: { proposeIntent }, intents: { get } }), 'proposeXrplIntent', {
+      environment: 'dev',
+      account: ADDRESS,
+      operation,
+    })
+
+    expect(proposeIntent.mock.calls[0][0]).toEqual({ Account: ADDRESS, operation })
+  })
+
   it('rejects an invalid operation with a field-level message, without calling Custody', async () => {
     const proposeIntent = vi.fn()
 

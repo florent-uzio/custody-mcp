@@ -122,7 +122,7 @@ Each Environment has an **Access level**, chosen in `add-env` (or with `CUSTODY_
 | Access level     | Allows                                                                                                          |
 | ---------------- | --------------------------------------------------------------------------------------------------------------- |
 | `read` (default) | Reading: users (`getMe`, `listUsers`), domains, accounts, balances, Intents, transfers, transactions, Dry runs. |
-| `propose`        | `read`, plus Proposing Intents (`proposeXrplIntent`, `proposeIntent`).                                          |
+| `propose`        | `read`, plus Proposing Intents (`proposeXrplIntent`, `proposeIntent`, `signBatchSigner`, `proposeBatchIntent`). |
 | `approve`        | `propose`, plus Approving and Rejecting Intents (`approveIntent`, `rejectIntent`).                              |
 
 The Access level only limits this server. What your Custody user may do is still decided by Custody's own roles and policies.
@@ -131,7 +131,7 @@ The Access level only limits this server. What your Custody user may do is still
 
 - Every propose, approve or reject call must name its Environment explicitly: a write never falls back to the default.
 - A tool above an Environment's Access level is refused before anything is sent to Custody.
-- Every Propose runs a Dry run first and proposes nothing if it fails.
+- `proposeXrplIntent` and `proposeIntent` run a Dry run first and propose nothing if it fails. A Batch is dry-run on its own with `dryRunBatchIntent`; `proposeBatchIntent` does not repeat it.
 - Every Approve or Reject asks you for confirmation in your client (see [ADR-0001](docs/adr/0001-approve-through-mcp.md)): the client shows a summary of the Intent, and nothing reaches Custody unless you accept. If your client cannot show a confirmation, the assistant is instructed to summarise the Intent and wait for your explicit "yes", and the result says that no in-client confirmation was shown.
 - Proposing returns at once. `waitForIntent` follows an Intent for a bounded time; `Executed` means Custody accepted the order, not that it settled on the ledger.
 

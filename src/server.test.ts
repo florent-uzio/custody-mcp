@@ -20,12 +20,14 @@ describe('custody MCP server', () => {
     expect(tools.map(tool => tool.name).sort()).toEqual([
       'approveIntent',
       'decryptConfidentialInboxBalance',
+      'dryRunBatchIntent',
       'dryRunIntent',
       'dryRunXrplIntent',
       'findAccountByAddress',
       'getAccount',
       'getAccountBalances',
       'getBackendVersion',
+      'getBatchSignature',
       'getConfidentialInboxDecryption',
       'getIntent',
       'getMcpVersion',
@@ -44,9 +46,11 @@ describe('custody MCP server', () => {
       'listTransactions',
       'listTransfers',
       'listUsers',
+      'proposeBatchIntent',
       'proposeIntent',
       'proposeXrplIntent',
       'rejectIntent',
+      'signBatchSigner',
       'waitForIntent',
     ])
   })

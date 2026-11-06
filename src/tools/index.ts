@@ -2,6 +2,7 @@ import type { ToolsInput } from '@mastra/core/agent'
 import type { ConnectCustody } from '../custody'
 import { createAccountTools } from './accounts'
 import { createApproveTools } from './approve'
+import { createBatchTools } from './batch'
 import { createDecryptionTools } from './decryption'
 import { createCustodyToolFactory } from './define'
 import { createIntentTools } from './intents'
@@ -33,6 +34,7 @@ export const createTools = (env: Record<string, string | undefined>, connect: Co
     createDecryptionTools(defineCustodyTool),
     createIntentTools(defineCustodyTool),
     createProposeTools(defineCustodyTool),
+    createBatchTools(defineCustodyTool),
     createApproveTools(defineCustodyTool),
     createTransactionTools(defineCustodyTool),
     createReferenceTools(defineCustodyTool),
