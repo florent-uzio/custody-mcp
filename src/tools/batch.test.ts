@@ -267,3 +267,23 @@ describe('a Batch with a built ConfidentialMPTSend', () => {
     expect(dryRunBatch.mock.calls[0][0]).toMatchObject({ entries })
   })
 })
+
+describe('a Batch with a ConfidentialMPTConvert', () => {
+  it('is refused: Custody V1 does not support it in a Batch', async () => {
+    const dryRunBatch = vi.fn()
+    const operation = {
+      type: 'ConfidentialMPTConvert',
+      tokenIdentifier: { type: 'MPTokenIssuanceId', issuanceId: 'I' },
+      amount: '1',
+    }
+
+    const output = await callTool(options({ xrpl: { dryRunBatch } }, 'read'), 'dryRunBatchIntent', {
+      environment: 'dev',
+      ...batch,
+      entries: [{ type: 'SubmitterOperation', operation, sequencing: { type: 'PlatformManaged' } }],
+    })
+
+    expect(dryRunBatch).not.toHaveBeenCalled()
+    expect(output).toHaveProperty('error')
+  })
+})

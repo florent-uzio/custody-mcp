@@ -152,7 +152,6 @@ const operations = [
   mpTokenIssuanceDestroy,
   mpTokenIssuanceSet,
   confidentialMptClawback,
-  confidentialMptConvert,
   confidentialMptConvertBack,
   confidentialMptMergeInbox,
 ] as const
@@ -161,9 +160,10 @@ const sponsorshipOperations = [sponsorshipSetAsSponsor, sponsorshipSetAsSponsee]
 
 /** The XRPL operation of a transaction order, in Custody's shape. */
 export const xrplOperation = z
-  .discriminatedUnion('type', [...operations, confidentialMptSend, ...sponsorshipOperations])
+  .discriminatedUnion('type', [...operations, confidentialMptConvert, confidentialMptSend, ...sponsorshipOperations])
   .describe('The XRPL operation to propose, chosen by `type`.')
 
+// ConfidentialMPTConvert is left out: Custody V1 does not support it in a Batch.
 // Unlike a standalone send, whose proofs Custody builds, a Batch inner send carries them: the caller pastes in what
 // buildConfidentialSendLeg returned.
 const batchConfidentialMptSend = confidentialMptSend.extend({
