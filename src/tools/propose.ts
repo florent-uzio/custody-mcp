@@ -10,7 +10,7 @@ import type { CustodyClient } from '../custody'
 import { authorIn } from './author'
 import type { DefineCustodyTool } from './define'
 import type { Environment } from '../environments'
-import { xrplOperation } from './xrpl-operation'
+import { sponsorship, xrplOperation } from './xrpl-operation'
 
 const intentInput = {
   // Loose on purpose: the Dry run is what checks a payload, with Custody's own reasons.
@@ -24,8 +24,16 @@ const xrplIntentInput = {
   account: z.string().describe('XRPL address of the Custody account the transaction is sent from.'),
   ledgerId: z.string().optional().describe('Id of the ledger, when the address is on several.'),
   operation: xrplOperation,
+  sponsorship: sponsorship.optional(),
   description: intentInput.description,
 }
+
+/** The transaction params custody.js takes: the sponsorship is left off when not given. */
+const xrplParams = ({ account, operation, sponsorship }: z.infer<z.ZodObject<typeof xrplIntentInput>>) => ({
+  Account: account,
+  operation,
+  ...(sponsorship === undefined ? {} : { sponsorship }),
+})
 
 // The Dry run is what validates a raw payload against Custody's schema.
 const rawPayload = (input: { payload: object }) => input.payload as unknown as IntentPayload
@@ -182,10 +190,11 @@ export const createProposeTools = (defineCustodyTool: DefineCustodyTool) => ({
         success,
         errors = [],
         estimate,
-      } = await custody.xrpl.dryRunIntent(
-        { Account: input.account, operation: input.operation },
-        { domainId, ledgerId: input.ledgerId, description: input.description },
-      )
+      } = await custody.xrpl.dryRunIntent(xrplParams(input), {
+        domainId,
+        ledgerId: input.ledgerId,
+        description: input.description,
+      })
       return { success, errors, estimate }
     },
   }),
@@ -200,10 +209,12 @@ export const createProposeTools = (defineCustodyTool: DefineCustodyTool) => ({
     run: async args => {
       const { custody, input, domainId } = args
       // custody.js builds the transaction order, dry-runs it and proposes that same request only if it passed.
-      const { intentId, payloadId } = await custody.xrpl.proposeIntent(
-        { Account: input.account, operation: input.operation },
-        { dryRun: true, domainId, ledgerId: input.ledgerId, description: input.description },
-      )
+      const { intentId, payloadId } = await custody.xrpl.proposeIntent(xrplParams(input), {
+        dryRun: true,
+        domainId,
+        ledgerId: input.ledgerId,
+        description: input.description,
+      })
       return { ...(await withStatus(custody, { domainId, intentId })), payloadId }
     },
   }),
