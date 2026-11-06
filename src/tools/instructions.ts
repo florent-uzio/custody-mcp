@@ -14,6 +14,7 @@ export const CUSTODY_INSTRUCTIONS = `
     ## Proposing
     - Use proposeXrplIntent for XRPL transactions (Payment, TrustSet, MPToken, ConfidentialMPT and SponsorshipSet operations) and proposeIntent with a raw \`v0_*\` payload for other Intent types.
     - Write tools (proposeXrplIntent, proposeIntent, signBatchSigner, proposeBatchIntent) need an Environment with the \`propose\` Access level, and must name their \`environment\`: they never use the default.
+    - A holder's first \`ConfidentialMPTConvert\` must be a zero-amount one: it registers the holder's ElGamal key. A non-zero first convert may fail on chain with \`tecNO_PERMISSION\`, after costing a fee, and the Dry run does not catch it. MPT transfers a holder received are quarantined and must be released before a convert can spend them.
     - Both run a Dry run first and propose nothing if it fails. Use dryRunXrplIntent (XRPL transactions) or dryRunIntent (raw \`v0_*\` payloads) to check an Intent without proposing it.
     - Both return at once: approvers act later. Use waitForIntent to follow it; "still awaiting approval" is not an error.
     - To have another account pay the fee and/or reserve (XLS-68 Sponsorship), pass \`sponsorship\` to proposeXrplIntent or dryRunXrplIntent.

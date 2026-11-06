@@ -110,7 +110,11 @@ const confidentialMptClawback = z.object({
   holder: destination,
 })
 
-const confidentialMptConvert = z.object({ type: z.literal('ConfidentialMPTConvert'), tokenIdentifier, amount })
+const confidentialMptConvert = z
+  .object({ type: z.literal('ConfidentialMPTConvert'), tokenIdentifier, amount })
+  .describe(
+    'Converts public MPT into the holder\'s confidential balance. A holder\'s first convert must register its ElGamal key: make it a zero-amount convert (`amount` "0"), since a non-zero first convert may fail on chain with `tecNO_PERMISSION`. MPT transfers the holder received are quarantined and must be released before a convert can spend them.',
+  )
 
 const confidentialMptConvertBack = z.object({ type: z.literal('ConfidentialMPTConvertBack'), tokenIdentifier, amount })
 
