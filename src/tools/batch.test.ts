@@ -192,3 +192,78 @@ describe('proposeBatchIntent', () => {
     expect(proposeBatch).not.toHaveBeenCalled()
   })
 })
+
+describe('buildConfidentialSendLeg', () => {
+  const transaction = {
+    Account: ACCOUNT,
+    TransactionType: 'ConfidentialMPTSend',
+    Destination: 'rDestination',
+    MPTokenIssuanceID: 'ISSUANCE',
+    SenderEncryptedAmount: 'AA',
+    DestinationEncryptedAmount: 'BB',
+    IssuerEncryptedAmount: 'CC',
+    AmountCommitment: 'DD',
+    BalanceCommitment: 'EE',
+    ZKProof: 'FF',
+    TicketSequence: 7,
+    Flags: 0x40000000,
+  }
+  const entryFields = { amount: '400', senderEncryptedBalance: '11', senderEncryptedBalanceVersion: 3 }
+
+  it('computes the leg and returns the full Batch operation to paste into an entry', async () => {
+    const buildConfidentialSend = vi.fn(async (_params: object, _options: object) => ({ transaction, entryFields }))
+
+    const output = await callTool(options({ xrpl: { buildConfidentialSend } }, 'read'), 'buildConfidentialSendLeg', {
+      environment: 'dev',
+      sender: ACCOUNT,
+      destination: 'rDestination',
+      issuanceId: 'ISSUANCE',
+      amount: '400',
+      ticketSequence: 7,
+    })
+
+    expect(buildConfidentialSend).toHaveBeenCalledWith(
+      { sender: ACCOUNT, destination: 'rDestination', issuanceId: 'ISSUANCE', amount: '400', ticketSequence: 7 },
+      { domainId: 'domain-1', ledgerId: undefined },
+    )
+    expect(output).toMatchObject({
+      operation: {
+        type: 'ConfidentialMPTSend',
+        tokenIdentifier: { type: 'MPTokenIssuanceId', issuanceId: 'ISSUANCE' },
+        destination: { type: 'Address', address: 'rDestination' },
+        amount: '400',
+        senderEncryptedBalance: '11',
+        senderEncryptedBalanceVersion: 3,
+        cryptographicFields: { type: 'Send', zkProof: expect.any(String) },
+      },
+    })
+  })
+})
+
+describe('a Batch with a built ConfidentialMPTSend', () => {
+  it('passes the computed fields through to custody.js', async () => {
+    const dryRunBatch = vi.fn(async (_payload: object, _options: object) => ({
+      executionMode: 'AllOrNothing',
+      transactions: [],
+      signers: [],
+    }))
+    const operation = {
+      type: 'ConfidentialMPTSend',
+      tokenIdentifier: { type: 'MPTokenIssuanceId', issuanceId: 'ISSUANCE' },
+      destination: { type: 'Address', address: 'rDestination' },
+      amount: '400',
+      senderEncryptedBalance: '11',
+      senderEncryptedBalanceVersion: 3,
+      cryptographicFields: { type: 'Send', zkProof: 'AA==' },
+    }
+    const entries = [{ type: 'SubmitterOperation', operation, sequencing: { type: 'Ticket', value: 7 } }]
+
+    await callTool(options({ xrpl: { dryRunBatch } }, 'read'), 'dryRunBatchIntent', {
+      environment: 'dev',
+      ...batch,
+      entries,
+    })
+
+    expect(dryRunBatch.mock.calls[0][0]).toMatchObject({ entries })
+  })
+})

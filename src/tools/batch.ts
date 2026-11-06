@@ -1,7 +1,7 @@
-import type { BatchPayloadInput, Core_BatchSigner } from '@florent-uzio/custody'
+import { batchToCustodyInnerTransactions, type BatchPayloadInput, type Core_BatchSigner } from '@florent-uzio/custody'
 import { z } from 'zod'
 import type { DefineCustodyTool } from './define'
-import { sponsorship, xrplOperation } from './xrpl-operation'
+import { batchXrplOperation, sponsorship } from './xrpl-operation'
 
 // The XLS-56 Batch flow under Batch v1.1, in three steps: dry-run the Batch to get one `signers[]` entry per
 // inner signer, have each signer sign its own entry, then propose the Batch with the signatures.
@@ -29,7 +29,7 @@ const participantSequencing = z.discriminatedUnion('type', [
 
 const submitterEntry = z.object({
   type: z.literal('SubmitterOperation'),
-  operation: xrplOperation,
+  operation: batchXrplOperation,
   sequencing: submitterSequencing,
   sponsorship: sponsorship.optional(),
 })
@@ -37,7 +37,7 @@ const submitterEntry = z.object({
 const participantEntry = z.object({
   type: z.literal('ParticipantOperation'),
   participant,
-  operation: xrplOperation,
+  operation: batchXrplOperation,
   sequencing: participantSequencing,
   sponsorship: sponsorship.optional(),
 })
@@ -88,6 +88,36 @@ const signerInput = z.object({
 
 /** The tools of the Batch flow. */
 export const createBatchTools = (defineCustodyTool: DefineCustodyTool) => ({
+  // A read: it has Custody compute proofs for the sender's vault-held key, and proposes nothing.
+  buildConfidentialSendLeg: defineCustodyTool({
+    id: 'buildConfidentialSendLeg',
+    description:
+      "Build a ConfidentialMPTSend for a Batch entry: Custody computes its proofs with the sender's vault-held key (this can take a minute or two). Returns the `operation` to paste unchanged into the Batch entry, whose `sequencing` must be the same `Ticket` as `ticketSequence` (the proofs are bound to it, so the Ticket must already exist). Compute it once and reuse it in dryRunBatchIntent, signBatchSigner and proposeBatchIntent: computing it again gives different proofs and invalidates the signatures. The sender must be an account on this Custody instance.",
+    domain: true,
+    input: {
+      sender: z.string().describe('XRPL address of the sending account, managed by this Custody instance.'),
+      destination: z.string().describe('XRPL address of the receiving account.'),
+      issuanceId: z.string().describe('The 192-bit MPT issuance id, hex encoded.'),
+      amount: z.string().describe("Amount to send, in the token's smallest unit."),
+      ticketSequence: ledgerSequence
+        .optional()
+        .describe('Ticket the entry is sequenced with. Omit only for an entry sequenced by AccountSequence.'),
+      ledgerId: z.string().optional().describe('Id of the ledger, when the sender address is on several.'),
+    },
+    run: async args => {
+      const { ledgerId, ...params } = args.input
+      const leg = await args.custody.xrpl.buildConfidentialSend(params, { domainId: args.domainId, ledgerId })
+      // custody.js's own conversion turns the leg into the entry's operation, so the encodings match what it expects.
+      const [entry] = batchToCustodyInnerTransactions(
+        { Account: params.sender, RawTransactions: [{ RawTransaction: leg.transaction }] } as Parameters<
+          typeof batchToCustodyInnerTransactions
+        >[0],
+        { confidentialSends: { [params.sender]: leg.entryFields } },
+      )
+      return { operation: entry.operation }
+    },
+  }),
+
   // A read: the Dry run is unsigned and changes nothing in Custody.
   dryRunBatchIntent: defineCustodyTool({
     id: 'dryRunBatchIntent',

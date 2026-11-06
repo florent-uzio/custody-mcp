@@ -144,21 +144,43 @@ const sponsorshipSetAsSponsor = z.object({
 
 const sponsorshipSetAsSponsee = z.object({ type: z.literal('SponsorshipSetAsSponsee'), sponsor: destination })
 
+const operations = [
+  payment,
+  trustSet,
+  mpTokenAuthorize,
+  mpTokenIssuanceCreate,
+  mpTokenIssuanceDestroy,
+  mpTokenIssuanceSet,
+  confidentialMptClawback,
+  confidentialMptConvert,
+  confidentialMptConvertBack,
+  confidentialMptMergeInbox,
+] as const
+
+const sponsorshipOperations = [sponsorshipSetAsSponsor, sponsorshipSetAsSponsee] as const
+
 /** The XRPL operation of a transaction order, in Custody's shape. */
 export const xrplOperation = z
-  .discriminatedUnion('type', [
-    payment,
-    trustSet,
-    mpTokenAuthorize,
-    mpTokenIssuanceCreate,
-    mpTokenIssuanceDestroy,
-    mpTokenIssuanceSet,
-    confidentialMptClawback,
-    confidentialMptConvert,
-    confidentialMptConvertBack,
-    confidentialMptMergeInbox,
-    confidentialMptSend,
-    sponsorshipSetAsSponsor,
-    sponsorshipSetAsSponsee,
-  ])
+  .discriminatedUnion('type', [...operations, confidentialMptSend, ...sponsorshipOperations])
   .describe('The XRPL operation to propose, chosen by `type`.')
+
+// Unlike a standalone send, whose proofs Custody builds, a Batch inner send carries them: the caller pastes in what
+// buildConfidentialSendLeg returned.
+const batchConfidentialMptSend = confidentialMptSend.extend({
+  amount: amount.describe('The plaintext amount, as returned by buildConfidentialSendLeg.'),
+  senderEncryptedBalance: z.string().describe('Hex, as returned by buildConfidentialSendLeg.'),
+  senderEncryptedBalanceVersion: z.number().int().describe('As returned by buildConfidentialSendLeg.'),
+  cryptographicFields: z
+    .record(z.string(), z.unknown())
+    .describe('The proofs, exactly as returned by buildConfidentialSendLeg.'),
+})
+
+/**
+ * The XRPL operation of a Batch entry. A `ConfidentialMPTSend` must come from buildConfidentialSendLeg, since
+ * its proofs are bound to the entry's Ticket.
+ */
+export const batchXrplOperation = z
+  .discriminatedUnion('type', [...operations, batchConfidentialMptSend, ...sponsorshipOperations])
+  .describe(
+    'The XRPL operation of the entry, chosen by `type`. For `ConfidentialMPTSend`, pass the `operation` returned by buildConfidentialSendLeg unchanged.',
+  )

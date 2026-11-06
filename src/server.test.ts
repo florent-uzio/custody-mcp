@@ -19,6 +19,7 @@ describe('custody MCP server', () => {
 
     expect(tools.map(tool => tool.name).sort()).toEqual([
       'approveIntent',
+      'buildConfidentialSendLeg',
       'decryptConfidentialInboxBalance',
       'dryRunBatchIntent',
       'dryRunIntent',
