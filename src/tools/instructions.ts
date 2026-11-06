@@ -22,6 +22,7 @@ export const CUSTODY_INSTRUCTIONS = `
 
     ## Batch
     - A Batch (XLS-56, Batch v1.1) takes three steps. dryRunBatchIntent returns \`signers\`, one entry per account that must sign. signBatchSigner proposes the signing of one entry for an account on this Custody instance: pass the entry unchanged, once per signer, and follow its Intent with waitForIntent. getBatchSignature then returns that signer's \`batchSigner\`. proposeBatchIntent proposes the Batch with all the \`batchSigner\`s, and the same Batch input as the Dry run.
+    - A \`ConfidentialMPTSend\` entry needs proofs Custody computes: call buildConfidentialSendLeg once, give the entry the same \`Ticket\` sequencing as its \`ticketSequence\` (the Ticket must already exist), and paste the returned \`operation\` unchanged. Reuse it in dryRunBatchIntent, signBatchSigner and proposeBatchIntent: computing it again invalidates the signatures. Custody V1 rejects ConfidentialMPTConvert in a Batch.
     - Never sign an entry or propose a Batch again because a result looks incomplete: check its Intent with getIntent first.
 
     ## Approving and rejecting

@@ -131,7 +131,7 @@ The Access level only limits this server. What your Custody user may do is still
 
 - Every propose, approve or reject call must name its Environment explicitly: a write never falls back to the default.
 - A tool above an Environment's Access level is refused before anything is sent to Custody.
-- `proposeXrplIntent` and `proposeIntent` run a Dry run first and propose nothing if it fails. A Batch is dry-run on its own with `dryRunBatchIntent`; `proposeBatchIntent` does not repeat it.
+- `proposeXrplIntent` and `proposeIntent` run a Dry run first and propose nothing if it fails. A Batch is dry-run on its own with `dryRunBatchIntent`; `proposeBatchIntent` does not repeat it. A `ConfidentialMPTSend` inside a Batch is built first with `buildConfidentialSendLeg` (Custody computes its proofs with the sender's vault-held key) and pasted unchanged into the entry, which must use the same Ticket.
 - Every Approve or Reject asks you for confirmation in your client (see [ADR-0001](docs/adr/0001-approve-through-mcp.md)): the client shows a summary of the Intent, and nothing reaches Custody unless you accept. If your client cannot show a confirmation, the assistant is instructed to summarise the Intent and wait for your explicit "yes", and the result says that no in-client confirmation was shown.
 - Proposing returns at once. `waitForIntent` follows an Intent for a bounded time; `Executed` means Custody accepted the order, not that it settled on the ledger.
 
