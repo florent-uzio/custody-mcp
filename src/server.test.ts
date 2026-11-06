@@ -69,6 +69,13 @@ describe('custody MCP server', () => {
     expect(instructions).toContain('explicit "yes"')
   })
 
+  it("warns that a holder's first ConfidentialMPTConvert must be a zero-amount one", () => {
+    const { instructions } = createCustodyMcpServer({ env: { CUSTODY_MCP_CONFIG: NO_CONFIG } })
+
+    expect(instructions).toContain('first `ConfidentialMPTConvert` must be a zero-amount one')
+    expect(instructions).toContain('quarantined')
+  })
+
   describe('Environments from the config file', () => {
     it('lists each Environment in the config file', async () => {
       const CUSTODY_MCP_CONFIG = configFile({
