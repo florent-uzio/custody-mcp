@@ -1,5 +1,15 @@
 # @florent-uzio/custody-mcp
 
+## 0.5.0
+
+### Minor Changes
+
+- ec78c2e: Support `ConfidentialMPTSend` inside a Batch. The new `buildConfidentialSendLeg` tool has Custody compute the proofs of a send, and its `operation` is pasted into a Batch entry for `dryRunBatchIntent`, `signBatchSigner` and `proposeBatchIntent`.
+
+### Patch Changes
+
+- 78f96f8: Document that a holder's first `ConfidentialMPTConvert` must be a zero-amount one to register its key, and that received MPT transfers are quarantined until released.
+
 ## 0.4.0
 
 ### Minor Changes
