@@ -24,7 +24,7 @@ const KEYCHAIN_SERVICE = 'custody-mcp'
 
 const USAGE: Record<string, string> = {
   'add-env':
-    'custody-mcp add-env <name> [--algorithm ed25519|secp256k1|secp256r1] [--import <pem-file>] [--store keychain|file|env]',
+    'custody-mcp add-env <name> [--algorithm ed25519|secp256k1|secp256r1] [--import <pem-file> | --paste] [--store keychain|file|env]',
   'list-envs': 'custody-mcp list-envs',
   'remove-env': 'custody-mcp remove-env <name>',
   'set-default': 'custody-mcp set-default <name>',
@@ -132,6 +132,7 @@ const addEnv = async (args: string[], { env, ask, print, keychain, connect }: Cl
     options: {
       algorithm: { type: 'string', default: 'ed25519' },
       import: { type: 'string' },
+      paste: { type: 'boolean', default: false },
       store: { type: 'string', default: 'keychain' },
     },
   })
@@ -139,8 +140,13 @@ const addEnv = async (args: string[], { env, ask, print, keychain, connect }: Cl
     print(`Usage: ${USAGE['add-env']}`)
     return 1
   }
-  if (values.store === 'env' && values.import !== undefined) {
-    print('--import cannot be used with --store env: --store env reads the private key from an env var instead.')
+  if (values.paste && values.import !== undefined) {
+    print('Use either --import or --paste, not both.')
+    return 1
+  }
+  if (values.store === 'env' && (values.import !== undefined || values.paste)) {
+    const flag = values.paste ? '--paste' : '--import'
+    print(`${flag} cannot be used with --store env: --store env reads the private key from an env var instead.`)
     return 1
   }
   const file = configPath(env)
@@ -165,10 +171,13 @@ const addEnv = async (args: string[], { env, ask, print, keychain, connect }: Cl
     keypair = keypairFromPem(pem)
     keyReference = `env:${variable}`
   } else {
-    keypair =
-      values.import === undefined
-        ? new KeypairService(values.algorithm as KeypairAlgorithm).generate()
-        : keypairFromPem(await readFile(values.import, 'utf8'))
+    if (values.paste) {
+      keypair = keypairFromPem(normalizePem(await askForPem(ask)))
+    } else if (values.import !== undefined) {
+      keypair = keypairFromPem(await readFile(values.import, 'utf8'))
+    } else {
+      keypair = new KeypairService(values.algorithm as KeypairAlgorithm).generate()
+    }
     keyReference = await storeKey(values.store, { name, privateKey: keypair.privateKey, configFile: file, keychain })
   }
   const { privateKey, publicKey } = keypair
@@ -215,9 +224,44 @@ const environmentIn = (config: Config, name: string, file: string) => {
   return environment
 }
 
+/**
+ * Reads a pasted private key PEM. The paste may be one line with literal `\n` separators or several lines,
+ * so lines are read until the PEM footer (or an empty line, once something was pasted).
+ */
+const askForPem = async (ask: CliOptions['ask']) => {
+  const lines = [await ask('Paste the private key PEM (literal \\n or real line breaks both work): ')]
+  // Keep reading only while a PEM has begun but not ended.
+  while (lines[0].includes('-----BEGIN') && !lines.join('\n').includes('-----END')) {
+    const line = await ask('')
+    if (line.trim() === '') break
+    lines.push(line)
+  }
+  return lines.join('\n')
+}
+
+/** Turns a pasted key into a PEM: drops wrapping quotes and turns literal `\n` into line breaks. */
+const normalizePem = (pasted: string) => {
+  const pem = pasted
+    .trim()
+    .replace(/^(["'`])([\s\S]*)\1$/, '$2')
+    .replace(/\\r\\n|\\n/g, '\n')
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(line => line !== '')
+    .join('\n')
+  return pem + '\n'
+}
+
 /** Derives the public key of a private key PEM, in the form Custody expects (base64 DER). */
 const keypairFromPem = (privateKey: string) => {
-  const publicKey = createPublicKey(privateKey).export({ type: 'spki', format: 'der' }).toString('base64')
+  let publicKey: string
+  try {
+    publicKey = createPublicKey(privateKey).export({ type: 'spki', format: 'der' }).toString('base64')
+  } catch {
+    throw new Error(
+      'That is not a valid private key PEM (expected -----BEGIN PRIVATE KEY----- … -----END PRIVATE KEY-----).',
+    )
+  }
   return { privateKey, publicKey }
 }
 

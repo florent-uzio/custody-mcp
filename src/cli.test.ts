@@ -206,6 +206,42 @@ describe('setup CLI', () => {
     )
   })
 
+  describe('add-env --paste', () => {
+    const existing = new KeypairService('ed25519').generate()
+
+    it.each([
+      ['real line breaks', existing.privateKey.trim().split('\n')],
+      ['literal \\n on one line', [existing.privateKey.trim().replace(/\n/g, '\\n')]],
+      ['literal \\n in quotes', [`"${existing.privateKey.trim().replace(/\n/g, '\\n')}"`]],
+    ])('imports a key pasted with %s', async (_label, pasted) => {
+      const [authUrl, apiUrl, ...rest] = URLS_AND_DEFAULTS
+      const result = await run(['add-env', 'dev', '--paste'], { answers: [authUrl, apiUrl, ...pasted, ...rest] })
+
+      expect(result.exitCode).toBe(0)
+      expect(result.readConfig().environments.dev.publicKey).toBe(existing.publicKey)
+      expect(result.keychain.items.get('custody-mcp/dev')).toBe(existing.privateKey)
+    })
+
+    it('rejects text that is not a private key, saving nothing', async () => {
+      const result = await run(['add-env', 'dev', '--paste'], {
+        answers: ['https://auth.dev.test/token', 'https://api.dev.test', 'hello'],
+      })
+
+      expect(result.exitCode).toBe(1)
+      expect(result.output).toContain('not a valid private key PEM')
+      expect(result.keychain.items.size).toBe(0)
+    })
+
+    it('refuses --paste with --import or --store env', async () => {
+      const both = await run(['add-env', 'dev', '--paste', '--import', 'key.pem'])
+      const env = await run(['add-env', 'dev', '--paste', '--store', 'env'])
+
+      expect(both.exitCode).toBe(1)
+      expect(env.exitCode).toBe(1)
+      expect(env.output).toContain('--paste cannot be used with --store env')
+    })
+  })
+
   describe('list-envs', () => {
     it('shows each Environment and where its key is stored, never the key', async () => {
       const config = configFile({
