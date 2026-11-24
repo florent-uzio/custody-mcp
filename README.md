@@ -68,7 +68,10 @@ Options:
 | ------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------- |
 | `--algorithm ed25519\|secp256k1\|secp256r1` | `ed25519`  | The algorithm of the keypair to generate.                                                             |
 | `--import <pem-file>`                       |            | Uses an existing private key PEM instead of generating one, e.g. a key already registered in Custody. |
+| `--paste`                                   |            | Same, but you paste the PEM into the terminal when asked (see below). Not combinable with `--import`. |
 | `--store keychain\|file\|env`               | `keychain` | Where the private key is kept (see below).                                                            |
+
+With `--paste`, `add-env` asks you to paste the private key. Both forms work: real line breaks, or a single line with literal `\n` (optionally wrapped in quotes). The terminal echoes what you paste, so use `--import` on a shared screen.
 
 ### Where private keys are kept
 
