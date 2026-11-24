@@ -1,5 +1,11 @@
 # @florent-uzio/custody-mcp
 
+## 0.6.0
+
+### Minor Changes
+
+- c594b24: `add-env --paste` imports an existing private key by pasting it into the terminal, with real line breaks or literal `\n`, so no PEM file is needed.
+
 ## 0.5.0
 
 ### Minor Changes
